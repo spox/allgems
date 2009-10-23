@@ -1,0 +1,133 @@
+#!/usr/bin/env ruby
+# encoding: utf-8
+
+SUCCESS = 0
+CONFIGURATION_ERROR = 1
+
+def display_help
+    $stdout.puts "\t\tAllGems - Document Everything
+usage: allgems [opts]
+--daemonize -D:\t\t\t\tRun as a daemon
+--datadir -d /path:\t\t\tData directory for documents/gems (defaults to /tmp/allgems)
+--dbfile -b /path/file.db\t\tPath to sqlite file (defaults datadir/allgems.db)
+--formatter -f darkfish:\t\tRDoc formatter (defaults to darkfish)
+--interval -i \\d+:\t\t\tSeconds to wait before updating documents (defaults to 1 hour)
+--runners -r \\d+:\t\t\tNumber of threads to use (defaults to 10)
+--log -L [/path/file]:\t\t\tTurn logging on (no argument defaults to STDOUT)
+--verbosity -V [(info|warn|fatal)]:\tLogging level (no argument defaults to info)
+--help -h:\t\t\t\tDisplay this help text"
+end
+
+# load in our libraries
+['logger', 'fileutils', 'getoptlong', 'allgems', 'sequel'].each{|f|require f}
+
+# set default values
+daemonize = false
+datadir = '/tmp/allgems'
+formatter = nil
+interval = 3600 # default to hourly checks
+runners = 10 # default to 10 threads
+dbfile = nil
+logto = nil
+
+# figure out what we are doing
+opts = GetoptLong.new(
+    ['--daemonize', '-D', GetoptLong::NO_ARGUMENT],
+    ['--datadir', '-d', GetoptLong::REQUIRED_ARGUMENT],
+    ['--dbfile', '-b', GetoptLong::REQUIRED_ARGUMENT],
+    ['--format', '-f', GetoptLong::REQUIRED_ARGUMENT],
+    ['--interval', '-i', GetoptLong::REQUIRED_ARGUMENT],
+    ['--runners', '-r', GetoptLong::REQUIRED_ARGUMENT],
+    ['--version', '-v', GetoptLong::NO_ARGUMENT],
+    ['--log', '-L', GetoptLong::OPTIONAL_ARGUMENT],
+    ['--verbosity -V', GetoptLong::OPTIONAL_ARGUMENT],
+    ['--help', '-h', GetoptLong::NO_ARGUMENT]
+)
+
+opts.each do |opt, arg|
+    case opt
+        when '--daemonize'
+            daemonize = true
+        when '--datadir'
+            datadir = arg
+        when '--formatter'
+            formatter = arg
+        when '--interval'
+            interval = arg.to_i
+        when '--runners'
+            runners = arg.to_i
+        when '--dbfile'
+            dbfile = arg
+        when '--version'
+            puts "VERSION INFO"
+        when '--log'
+            logto = arg ? arg : $stdout
+        when '--help'
+            display_help
+            exit SUCCESS
+    end
+end
+
+dbfile = "#{datadir}/allgems.db" if dbfile.nil?
+interval = nil unless daemonize
+
+# yell at user for bad values
+if(interval && interval <= 0)
+    $stderr.puts "ERROR: interval value must be greater than 1"
+    exit CONFIGURATION_ERROR
+end
+if(runners <= 0)
+    $stderr.puts "ERROR: runners value must be greater than 1"
+    exit CONFIGURATION_ERROR
+end
+unless(File.writable?(datadir))
+    created = false
+    #check if we can/should create it
+    unless(File.exists?(datadir))
+        begin
+            FileUtils.mkdir_p datadir
+            created = true
+        rescue SystemCallError
+            created = false
+        end
+    end
+    unless(created)
+        $stderr.puts "ERROR: data directory is not writable. (#{datadir})"
+        exit CONFIGURATION_ERROR
+    end
+end
+unless(File.exists?(dbfile))
+    begin
+        FileUtils.touch dbfile
+    rescue SystemCallError
+    end
+end
+unless(File.writable?(dbfile))
+    $stderr.puts "ERROR: database file is not writable. (#{dbfile})"
+    exit CONFIGURATION_ERROR
+end
+
+# okay, lets continue
+
+if(daemonize)
+    if(RUBY_VERSION > '1.9.0')
+        Process.daemon
+    else
+        if(pid = fork)
+            Signal.trap('HUP', 'IGNORE')
+            Process.detach(pid)
+            exit
+        end
+    end
+end
+
+# and, we can finally do our thing
+AllGems.defaulterize
+AllGems.data_directory = datadir
+AllGems.rdoc_format = formatter
+AllGems.logger = Logger.new(logto)
+
+require 'allgems/Runner'
+runner = AllGems::Runner.new(:db_path => dbfile, :runners => runners, :interval => interval)
+runner.stop unless daemonize
+exit SUCCESS
