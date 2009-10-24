@@ -13,4 +13,7 @@ spec = Gem::Specification.new do |s|
     s.required_ruby_version = '>= 1.8.6'
     s.homepage          = %q(http://github.com/spox/allgems)
     s.description       = 'AllGems is a tool to provide comprehensive gem documentation for an entire index'
+    s.add_dependency 'sequel'
+    s.add_dependency 'ActionPool'
+    s.add_dependency 'ActionTimer'
 end
