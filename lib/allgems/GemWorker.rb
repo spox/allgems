@@ -1,3 +1,5 @@
+require 'net/http'
+require 'uri'
 require 'rubygems/installer'
 
 module AllGems
@@ -12,8 +14,7 @@ module AllGems
             raise NameError.new("Name not found: #{args[:name]} - #{args[:version]}") if spec.nil?
             basedir = "#{AllGems.data_directory}/#{spec.name}/#{spec.version.version}"
             FileUtils.mkdir_p basedir
-            gempath = self.fetch(spec, uri)
-            gempath = self.save(gempath, "#{basedir}/#{spec.full_name}.gem")
+            gempath = self.fetch(spec, uri, "#{basedir}/#{spec.full_name}.gem")
             self.unpack(gempath, basedir)
             self.generate_documentation(spec, basedir)
             self.save_data(spec, args[:database])
@@ -31,15 +32,36 @@ module AllGems
         
         # spec:: Gem::Specification
         # uri:: URI of gem files home
+        # save_path:: path to save gem
         # Fetch the gem file from the server. Returns the path to the gem
         # on the local machine
-        def self.fetch(spec, uri)
+        def self.fetch(spec, uri, save_path)
+            FileUtils.touch(save_path)
             begin
-                path = nil
-                @glock.synchronize{path = Gem::RemoteFetcher.fetcher.download spec, uri}
-                return path
-            rescue Gem::RemoteFetcher::FetchError
-                retry
+                remote_path = "#{uri}/gems/#{spec.full_name}.gem"
+                remote_uri = URI.parse(remote_path)
+                file = File.open(save_path, 'w')
+                file.write(self.fetch_remote(remote_uri))
+                save_path
+            rescue Exception => boom
+            puts "ERROR: #{boom}\n#{boom.backtrace.join("\n")}"
+                raise FetchError.new(spec.name, spec.version, remote_path)
+            end
+        end
+
+        # uri:: URI of gem
+        # depth:: number of times called
+        # Fetch gem from given URI
+        def self.fetch_remote(uri, depth=0)
+            raise IOError.new("Depth too deep") if depth > 9
+            response = Net::HTTP.get_response(uri)
+            if(response.is_a?(Net::HTTPSuccess))
+                response.body
+            elsif(response.is_a?(Net::HTTPRedirection))
+                puts "Location: #{response['location']} : #{response}"
+                self.fetch_remote(URI.parse(response['location']), depth + 1)
+            else
+                raise IOError.new("Unknown response type: #{response}")
             end
         end
 
@@ -53,10 +75,17 @@ module AllGems
 
         # path:: path to the gem file
         # basedir:: directory to unpack in
+        # depth:: number of times called
         # Unpacks the gem into the basedir under the 'unpack' directory
-        def self.unpack(path, basedir)
-            Gem::Installer.new(path, :unpack => true).unpack "#{basedir}/unpack"
-            FileUtils.rm(path)
+        def self.unpack(path, basedir, depth=0)
+            begin
+                Gem::Installer.new(path, :unpack => true).unpack "#{basedir}/unpack"
+                FileUtils.chmod_R(0755, "#{basedir}/unpack") # fix any bad permissions
+                FileUtils.rm(path)
+            rescue
+                raise IOError.new("Failed to unpack gem: #{path}") if File.size(path) < 1 || depth > 10
+                self.unpack(path, basedir, depth+1)
+            end
             true
         end
 
@@ -119,6 +148,17 @@ module AllGems
             end
             def to_s
                 "Failed to create documentation for: #{@gem_name}-#{@gem_version}."
+            end
+        end
+
+        class FetchError < StandardError
+            attr_reader :gem_name
+            attr_reader :gem_version
+            attr_reader :uri
+            def initialize(gn, gv, u)
+                @gem_name = gn
+                @gem_version = gv
+                @uri = u
             end
         end
     end
