@@ -13,7 +13,7 @@ module AllGems
             spec,uri = self.get_spec(args[:name], args[:version])
             raise NameError.new("Name not found: #{args[:name]} - #{args[:version]}") if spec.nil?
             basedir = "#{AllGems.data_directory}/#{spec.name}/#{spec.version.version}"
-            FileUtils.mkdir_p basedir
+            FileUtils.mkdir_p "#{basedir}/unpack"
             gempath = self.fetch(spec, uri, "#{basedir}/#{spec.full_name}.gem")
             self.unpack(gempath, basedir)
             self.generate_documentation(spec, basedir)
@@ -83,10 +83,21 @@ module AllGems
                 FileUtils.chmod_R(0755, "#{basedir}/unpack") # fix any bad permissions
                 FileUtils.rm(path)
             rescue
-                raise IOError.new("Failed to unpack gem: #{path}") if File.size(path) < 1 || depth > 10
-                self.unpack(path, basedir, depth+1)
+                 if(File.size(path) < 1 || depth > 10)
+                    raise IOError.new("Failed to unpack gem: #{path}") unless self.direct_unpack(path, basedir)
+                else
+                    self.unpack(path, basedir, depth+1)
+                end
             end
             true
+        end
+
+        # path:: path to the gem file
+        # basedir:: directory to unpack in
+        # Last ditch effort to unpack the gem
+        def self.direct_unpack(path, basedir)
+            unpackdir = path.slice(0, path.rindex('.'))
+            self.run_command("cd #{basedir} && gem unpack #{path} && mv #{unpackdir}/* #{basedir}/unpack/ && rm -rf #{unpackdir}")
         end
 
         # dir:: base directory location of gem contents
@@ -109,19 +120,31 @@ module AllGems
         def self.build_docs(args)
             pro = nil
             output = []
+            self.run_command("rdoc #{args}")
+        end
+
+        # command:: command to run
+        # return_output:: return output
+        # Runs a command. Returns true if status returns 0. If return_output is true,
+        # return value is: [status, output]
+        def self.run_command(command, return_output=false)
+            pro = nil
+            output = []
+            status = nil
             begin
-                pro = IO.popen("rdoc #{args}")
+                pro = IO.popen(command)
+                Process.setpriority(Process::PRIO_PROCESS, pro.pid, 19)
                 until(pro.closed? || pro.eof?)
                     output << pro.gets
                 end
             ensure
-                if(pro.nil?)
-                    return false
-                else
+                unless(pro.nil?)
                     pid, status = Process.waitpid2(pro.pid)
-                    return status == 0
+                else
+                    status = 1
                 end
             end
+            return return_output ? [status == 0, output.join] : status == 0
         end
 
         # spec:: Gem::Specification
