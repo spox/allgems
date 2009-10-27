@@ -127,6 +127,8 @@ AllGems.data_directory = datadir
 AllGems.rdoc_format = formatter
 AllGems.logger = Logger.new(logto)
 
+Process.setpriority(Process::PRIO_PROCESS, 0, 19)
+
 require 'allgems/Runner'
 runner = AllGems::Runner.new(:db_path => dbfile, :runners => runners, :interval => interval)
 runner.stop unless daemonize
