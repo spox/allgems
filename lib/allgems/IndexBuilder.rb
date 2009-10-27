@@ -10,7 +10,8 @@ module AllGems
             b
         end
         def local_array
-            @db[:versions].join(:gems, :id => :gem_id).join(:platforms, :id => :versions__platform_id).select(:name, :version, :platform).all.collect{|x|x.values}
+            la = @db[:versions].join(:gems, :id => :gem_id).join(:platforms, :id => :versions__platform_id).select(:name, :version, :platform).all.collect{|x|x.values}
+            la.map{|a| [a[0], Gem::Version.new(a[1]), a[2]]}
         end
     end
 end
