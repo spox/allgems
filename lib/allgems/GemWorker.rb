@@ -10,10 +10,12 @@ module AllGems
         # :version:: version of the gem
         # :database:: database connection
         def self.process(args)
+            AllGems.logger.info "Processing gem: #{args[:name]}-#{args[:version]}"
             spec,uri = self.get_spec(args[:name], args[:version])
             raise NameError.new("Name not found: #{args[:name]} - #{args[:version]}") if spec.nil?
             basedir = "#{AllGems.data_directory}/#{spec.name}/#{spec.version.version}"
             FileUtils.mkdir_p "#{basedir}/unpack"
+            AllGems.logger.info "Created new directory: #{basedir}/unpack"
             gempath = self.fetch(spec, uri, "#{basedir}/#{spec.full_name}.gem")
             self.unpack(gempath, basedir)
             self.generate_documentation(spec, basedir)
@@ -24,6 +26,7 @@ module AllGems
         # version:: version of gem
         # Fetches the Gem::Specification for the given gem
         def self.get_spec(name, version)
+            AllGems.logger.info "Fetching gemspec for #{name}-#{version}"
             dep = Gem::Dependency.new(name, version)
             spec = nil
             @glock.synchronize{spec = Gem::SpecFetcher.fetcher.fetch dep, true}
@@ -36,6 +39,7 @@ module AllGems
         # Fetch the gem file from the server. Returns the path to the gem
         # on the local machine
         def self.fetch(spec, uri, save_path)
+            AllGems.logger.info "Fetching gem from: #{uri}/gems/#{spec.full_name}.gem"
             FileUtils.touch(save_path)
             begin
                 remote_path = "#{uri}/gems/#{spec.full_name}.gem"
@@ -44,7 +48,6 @@ module AllGems
                 file.write(self.fetch_remote(remote_uri))
                 save_path
             rescue Exception => boom
-            puts "ERROR: #{boom}\n#{boom.backtrace.join("\n")}"
                 raise FetchError.new(spec.name, spec.version, remote_path)
             end
         end
@@ -58,7 +61,6 @@ module AllGems
             if(response.is_a?(Net::HTTPSuccess))
                 response.body
             elsif(response.is_a?(Net::HTTPRedirection))
-                puts "Location: #{response['location']} : #{response}"
                 self.fetch_remote(URI.parse(response['location']), depth + 1)
             else
                 raise IOError.new("Unknown response type: #{response}")
@@ -69,6 +71,7 @@ module AllGems
         # newname:: path to move gem file to
         # Moves the gem to the given location
         def self.save(gempath, newpath)
+            AllGems.logger.info "Moving #{gempath} to #{newpath}"
             FileUtils.mv gempath, newpath
             newpath
         end
@@ -78,6 +81,7 @@ module AllGems
         # depth:: number of times called
         # Unpacks the gem into the basedir under the 'unpack' directory
         def self.unpack(path, basedir, depth=0)
+            AllGems.logger.info "Unpacking gem: #{path}"
             begin
                 Gem::Installer.new(path, :unpack => true).unpack "#{basedir}/unpack"
                 FileUtils.chmod_R(0755, "#{basedir}/unpack") # fix any bad permissions
@@ -96,6 +100,7 @@ module AllGems
         # basedir:: directory to unpack in
         # Last ditch effort to unpack the gem
         def self.direct_unpack(path, basedir)
+            AllGems.logger.warn "Attempting forcible unpack on: #{path}"
             unpackdir = path.slice(0, path.rindex('.'))
             self.run_command("cd #{basedir} && gem unpack #{path} && mv #{unpackdir}/* #{basedir}/unpack/ && rm -rf #{unpackdir}")
         end
@@ -105,11 +110,13 @@ module AllGems
         # 'unpack' to the given directory for code discovery. Documentation will
         # be output in "#{dir}/doc"
         def self.generate_documentation(spec, dir)
+            AllGems.logger.info "Generating documentation for #{spec.full_name}"
             args = []
             args << "--format=#{AllGems.rdoc_format}" unless AllGems.rdoc_format.nil?
             args << '-aFNqH' << "--op=#{dir}/doc" << "#{dir}/unpack"
             result = self.build_docs(args.join(' '))
             raise DocError.new(spec.name, spec.version) unless result
+            AllGems.logger.info "Completed documentation for #{spec.full_name}"
             result
         end
 
@@ -150,6 +157,7 @@ module AllGems
         # spec:: Gem::Specification
         # Save data to the database about this gem
         def self.save_data(spec, db)
+            AllGems.logger.info "Saving meta data for #{spec.full_name}"
             @slock.synchronize do
                 gid = db[:gems].filter(:name => spec.name).first
                 gid = gid.nil? ? db[:gems].insert(:name => spec.name) : gid[:id]
@@ -158,6 +166,7 @@ module AllGems
                 db[:versions] << {:version => spec.version.version, :gem_id => gid, :platform_id => pid}
                 db[:gems].filter(:id => gid).update(:summary => spec.summary)
             end
+            AllGems.logger.info "Meta data saving complete for #{spec.full_name}"
             true
         end
 
