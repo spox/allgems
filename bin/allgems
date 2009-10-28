@@ -29,6 +29,7 @@ interval = 3600 # default to hourly checks
 runners = 10 # default to 10 threads
 dbfile = nil
 logto = nil
+level = Logger::INFO
 
 # figure out what we are doing
 opts = GetoptLong.new(
@@ -40,7 +41,7 @@ opts = GetoptLong.new(
     ['--runners', '-r', GetoptLong::REQUIRED_ARGUMENT],
     ['--version', '-v', GetoptLong::NO_ARGUMENT],
     ['--log', '-L', GetoptLong::OPTIONAL_ARGUMENT],
-    ['--verbosity -V', GetoptLong::OPTIONAL_ARGUMENT],
+    ['--verbosity', '-V', GetoptLong::OPTIONAL_ARGUMENT],
     ['--help', '-h', GetoptLong::NO_ARGUMENT]
 )
 
@@ -61,7 +62,20 @@ opts.each do |opt, arg|
         when '--version'
             puts "VERSION INFO"
         when '--log'
-            logto = arg ? arg : $stdout
+            logto = arg.empty? ? $stdout: arg
+        when '--verbosity'
+            case arg
+                when 'info'
+                    level = Logger::INFO
+                when 'warn'
+                    level = Logger::WARN
+                when 'error'
+                    level = Logger::ERROR
+                when 'fatal'
+                    level = Logger::FATAL
+                else
+                    level = Logger::INFO
+            end
         when '--help'
             display_help
             exit SUCCESS
@@ -125,11 +139,14 @@ end
 AllGems.defaulterize
 AllGems.data_directory = datadir
 AllGems.rdoc_format = formatter
-AllGems.logger = Logger.new(logto)
+AllGems.logger = Logger.new(logto, level)
 
 Process.setpriority(Process::PRIO_PROCESS, 0, 19)
 
 require 'allgems/Runner'
 runner = AllGems::Runner.new(:db_path => dbfile, :runners => runners, :interval => interval)
+trap('SIGINT'){runner.stop(true)}
+trap('SIGHUP'){runner.stop; runner.do_sync}
+runner.do_sync
 runner.stop unless daemonize
 exit SUCCESS
