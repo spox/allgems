@@ -14,12 +14,16 @@ module AllGems
             AllGems.initialize_db(@db)
             @pool = ActionPool::Pool.new(:max_threads => args[:runners] ? args[:runners] : 10)
             @index = IndexBuilder.new(:database => @db)
-            if(args[:interval])
+            @interval = args[:interval] ? args[:interval] : nil
+            @timer = nil
+        end
+        
+        def do_sync
+            if(@interval)
                 @timer = ActionTimer::Timer.new(:pool => @pool)
                 sync
-                @timer.add(args[:interval]){ sync }
+                @timer.add(@interval){ sync }
             else
-                @timer = nil
                 sync
             end
         end
@@ -27,25 +31,24 @@ module AllGems
         # until the pool gets bored and wakes us up
         def sync
             Gem.refresh
-            Thread.new{
-            @pool.add_jobs(@index.build_array(@index.local_array).collect{|x| lambda{GemWorker.process({:database => @db}.merge(x))}})
-            }
-            loop do
-                begin
-                    sleep
-                rescue Exception => boom
-                    puts "Caught error: #{boom.class} - #{boom}"
-                    puts boom.backtrace.join("\n")
-                end
+            Thread.new do
+                @pool.add_jobs(@index.build_array(@index.local_array).collect{|x| lambda{GemWorker.process({:database => @db}.merge(x))}})
             end
-#             lock = Mutex.new
-#             guard = ConditionVariable.new
-#             @pool << lambda{lock.synchronize{guard.signal}}
-#             lock.synchronize{guard.wait(lock)}
+            begin
+                lock = Mutex.new
+                guard = ConditionVariable.new
+                @pool << lambda{lock.synchronize{guard.signal}}
+                lock.synchronize{guard.wait(lock)}
+            rescue Exception => boom
+                AllGems.logger.error boom.to_s
+                retry
+            end
         end
         # Stop the runner
-        def stop
-            @pool.shutdown
+        def stop(now=false)
+            @timer.clear if @timer
+            @pool.shutdown(now)
         end
+
     end
 end
