@@ -3,6 +3,7 @@ Class.new(Sequel::Migration) do
         create_table(:gems) do
             String :name, :null => false, :unique => true
             String :summary
+            String :description
             primary_key :id, :null => false
         end
         create_table(:platforms) do
@@ -11,6 +12,7 @@ Class.new(Sequel::Migration) do
         end
         create_table(:versions) do
             String :version, :null => false
+            Time :release, :null => false
             foreign_key :gem_id, :table => :gems, :null => false
             foreign_key :platform_id, :table => :platforms, :null => false
             index [:gem_id, :version, :platform_id], :unique => true
