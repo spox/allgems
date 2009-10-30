@@ -1,9 +1,31 @@
 require 'sinatra'
 
-module Gembox
-  class App < ::Sinatra::Default
-    include Gembox::ViewHelpers  
-    include WillPaginate::ViewHelpers
+module AllGems
+    
+    class App < ::Sinatra::Default
+
+        include AllGems::ViewHelpers
+
+        # root is nothing, so redirect people on their way
+        get '/' do
+            redirect '/gems'
+        end
+
+        # here, we just list gems
+        get '/gems/?' do
+            show_layout = params[:layout] != 'false'
+            @show_as = params[:as] || 'columns'
+            if(@search = params[:search])
+                @gems = do_search(params[:search])
+                if(@gems.size == 1)
+                    redirect "/gems/#{@gems[:name]}" # send user on their way if we only get one result
+                end
+            else
+                @gems = AllGems.db[:gems].paginate(params[:page], 30)
+            end
+            haml "gems_#{@show_as}".to_sym, :layout => show_layout
+        end
+
       
     @@root = File.expand_path(File.join(File.dirname(__FILE__), '..', '..'))
 
@@ -57,18 +79,7 @@ module Gembox
       haml :gem, :layout => show_layout
     end
         
-    get '/gems/?' do
-      show_layout = params[:layout] != 'false'
-      @show_as = params[:as] || 'columns'
-      if @search = params[:search]
-        @gems = Gembox::Gems.search(@search).paginate :page => params[:page]
-        if !@gems.empty? && gem = @gems.find {|k,v| k.strip == @search.strip }
-          gem = gem[1][0]
-          redirect "/gems/#{gem.name}/#{gem.version}" and return
-        end
-      end
-      haml "gems_#{@show_as}".to_sym, :layout => show_layout
-    end
+
    
     def self.version
       Gembox::VERSION
