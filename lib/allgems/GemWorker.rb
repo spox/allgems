@@ -114,9 +114,11 @@ module AllGems
             args = []
             args << "--format=#{AllGems.rdoc_format}" unless AllGems.rdoc_format.nil?
             args << '-aFNqH' << "--op=#{dir}/doc" << "#{dir}/unpack"
+            FileUtils.rm_r("#{dir}/doc", :force => true) # make sure this does not exist
             result = self.build_docs(args.join(' '))
             raise DocError.new(spec.name, spec.version) unless result
             AllGems.logger.info "Completed documentation for #{spec.full_name}"
+            FileUtils.chmod_R(0755, "#{dir}/doc") # fix any bad permissions
             result
         end
 
