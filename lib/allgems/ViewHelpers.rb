@@ -1,3 +1,5 @@
+require 'rdoc/markup/to_html'
+
 module AllGems
     module ViewHelpers
     
@@ -18,9 +20,9 @@ module AllGems
         end
 
         def link_to_gem(gem, options = {})
-            text    = options[:text] || gem.name
-            version = gem.version if options[:show_version]
-            link_to(text, "/gems/#{gem.name}/#{gem.version}")
+            version = options[:version] ? options[:version] : ''
+            text = options[:text] ? options[:text] : gem
+            link_to(text, "/gems/#{gem}/#{version}")
         end
 
         def url_for(link_options)
