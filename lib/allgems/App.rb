@@ -1,4 +1,6 @@
 require 'sinatra'
+require 'allgems/ViewHelpers'
+require 'allgems/GemWorker'
 
 module AllGems
     
@@ -6,102 +8,61 @@ module AllGems
 
         include AllGems::ViewHelpers
 
+        @@root = File.expand_path(File.join(File.dirname(__FILE__), '..', '..'))
+        set :root, @@root
+        set :app_file, __FILE__
+
+        before do
+            @environment = options.environment
+        end
+        
+        get '/stylesheets/:stylesheet.css' do
+            sass params[:stylesheet].to_sym
+        end
+        
         # root is nothing, so redirect people on their way
         get '/' do
             redirect '/gems'
         end
 
-        # here, we just list gems
+        # generate the gem listing
         get '/gems/?' do
             show_layout = params[:layout] != 'false'
-            @show_as = params[:as] || 'columns'
+            @show_as = params[:as] && params[:as] == 'table' ? 'table' : 'columns'
             if(@search = params[:search])
                 @gems = do_search(params[:search])
                 if(@gems.size == 1)
                     redirect "/gems/#{@gems[:name]}" # send user on their way if we only get one result
                 end
             else
-                @gems = AllGems.db[:gems].paginate(params[:page], 30)
+                page = params[:page] ? params[:page].to_i : 1
+                @gems = AllGems.db[:gems].paginate(page, 30)
+                puts "we have #{@gems.count} gems"
             end
             haml "gems_#{@show_as}".to_sym, :layout => show_layout
         end
 
-      
-    @@root = File.expand_path(File.join(File.dirname(__FILE__), '..', '..'))
-
-    set :root,  @@root    
-    set :app_file, __FILE__
-        
-    before do
-      Gembox::Gems.load
-      @gems  = Gembox::Gems.local_gems.paginate :page => params[:page], :per_page => 30
-      @stats = Gembox::Gems.stats
-      @search ||= ''
-      @environment = options.environment
-    end
-
-    get '/stylesheets/:stylesheet.css' do
-      sass params[:stylesheet].to_sym
-    end
-
-    get '/' do
-      redirect '/gems'
-    end
-    
-    get %r{/gems/doc/([\w\-\_]+)/?([\d\.]+)?/?(.*)?} do
-      load_gem_by_version
-      @rdoc_path = @gem.rdoc_path
-      if params[:captures].length == 3 && !params[:captures][2].blank? 
-        # we have a path
-        full_path = File.join(@rdoc_path, params[:captures].pop)
-        content_type File.extname(full_path)
-        File.read(full_path)
-      else
-        haml :doc, :layout => false
-      end
-    end
-    
-    get %r{/gems/([\w\-\_]+)/?([\d\.]+)?/?} do
-      show_layout = params[:layout] != 'false'
-      load_gem_by_version
-      if params[:file]
-        action = params[:action] || 'view'
-        file_path = File.join(@gem.full_gem_path, params[:file])
-        if File.readable?(file_path)
-          if action == 'edit' && !production?
-            `$EDITOR #{file_path}`
-          else
-            content_type 'text/plain'
-            return File.read(file_path)
-          end
+        # send the the correct place
+        get %r{/gems/([\w\-\_]+)/?([\d\.]+)?/?} do
+            gem = params[:captures][0]
+            version = params[:captures].size > 1 ? params[:captures][1] : nil
+            @gem = load_gem_spec(gem, version)
+            @versions = AllGems.db[:versions].join(:gems, :id => :gem_id).filter(:name => gem).order(:version.desc).select(:version, :release)
+            haml :gem
         end
-      end
-      haml :gem, :layout => show_layout
-    end
-        
 
-   
-    def self.version
-      Gembox::VERSION
+        private
+
+        def load_gem_spec(gem, version=nil)
+            version ||= get_latest(gem)
+            raise 'failed gem' unless version
+            GemWorker.get_spec(gem, version)[0]
+        end
+
+        # gem:: name of the gem
+        # Returns the latest version of the given gem or nil
+        def get_latest(gem)
+            AllGems.db[:versions].join(:gems, :id => :gem_id).filter(:name => gem).order(:version.desc).limit(1).select(:version).map(:version)[0]
+        end
     end
-   
-    private
-    
-    def load_gem_by_version
-      name, version = params[:captures]
-      @gems = Gembox::Gems.search(name, nil, true)
-      raise @gems.inspect if @gems.empty?
-      @gem_versions = @gems[0][1]
-      if version
-        @gems = Gembox::Gems.search(name, version)
-        @gem  = @gems.shift[1].first if @gems
-      end
-      if !@gem
-        @gem = @gem_versions.shift
-        redirect "/gems/#{@gem.name}/#{@gem.version}"
-      end
-    end
-    
-    
-  end
 end
