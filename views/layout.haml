@@ -1,7 +1,7 @@
 %html{:xmlns=> "http://www.w3.org/1999/xhtml", 'xml:lang' => "en", :lang => "en"}
   %head
     %meta{'http-equiv' => "Content-Type", 'content' => "text/html; charset=utf-8"}
-    %title Gembox
+    %title AllGems - Document everything
     %link{'href' => '/stylesheets/gembox.css', 'rel' => 'stylesheet', 'type' => 'text/css', 'media' => 'screen'}
     -['jquery', 'jquery.ui', 'jquery.metadata', 'jquery.form', 'base', 'gembox'].each do |jslib|
       %script{'type' => 'text/javascript', 'src' => "/javascripts/#{jslib}.js"}
@@ -10,7 +10,7 @@
       #header
         .contained
           %img{:src => '/images/rubygems-125x125t.png', :alt => 'Rubygems logo', :id => 'logo'}
-          %h1=link_to('Gembox', '/')
+          %h1=link_to('AllGems', '/')
       #nav
         .contained
           .search
@@ -20,30 +20,38 @@
       #stats
         .contained
           %p
-            You have
-            =@stats[:num_versions]
+            Currently
+            =AllGems.total_installs
             versions of
-            =@stats[:num_gems]
-            gems.
-            Your newest gem is
-            =link_to_gem(@stats[:newest_gem])
+            =AllGems.total_gems
+            gems are available.
+            Newest gem is
+            =link_to_gem(AllGems.newest_gem[:name])
             from
-            =ts(@stats[:newest_gem].date)
+            =ts(AllGems.newest_gem[:release])
         
       #main.contained
         =yield
       #footer
         %p.copyright 
-          Gembox, developed by 
-          =link_to 'Quirkey.', 'http://code.quirkey.com'
+          =link_to 'AllGems', 'http://github.com/spox/allgems'
+          documentation engine. Developed by
+          =link_to 'spox.', 'http://github.com/spox'
+        %p.copyright
           Powered by
-          =link_to 'Sinatra.', 'http://sinatrarb.com'
-          Running in 
+          =link_to 'Sinatra,', 'http://sinatrarb.com'
+          =link_to 'Sequel,', 'http://sequel.rubyforge.org'
+          and
+          =link_to 'RubyGems.', 'http://rubygems.org'
+        %p.copyright
+          Based on
+          =link_to 'Gembox', 'http://github.com/quirkey/gembox'
+          by
+          =link_to 'Quirkey', 'http://code.quirkey.com/'
+        %p.copyright
+          Currently running in 
           = @environment
           mode.
-        %p.copyright 
-          Hey! I'm 
-          =link_to 'open-source!', 'http://github.com/quirkey/gembox'
 
       :erb
         <script type="text/javascript" charset="utf-8">

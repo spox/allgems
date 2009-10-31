@@ -2,10 +2,10 @@
   -if @search 
     Gems matching
     %em=@search 
-    %span.num="(#{@gems.length})"
+    %span.num="(#{AllGems.total_gems})"
   -else
     Installed Gems
-    %span.num="(#{@gems.total_entries})"
+    %span.num="(#{AllGems.total_installs})"
   %span.view_options
     View as
     =(@show_as == 'columns') ? '<strong>Columns</strong>' : link_to('Columns', {'as' => 'columns'})
@@ -13,5 +13,3 @@
     =(@show_as == 'table') ? '<strong>Table</strong>' : link_to('Table', {'as' => 'table'})
     / | 
     /=link_to('Summaries', {'summaries' => 'false'})
-
-=will_paginate(@gems)

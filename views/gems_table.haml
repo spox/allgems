@@ -3,17 +3,17 @@
   %table#gems
     %thead
       %th Name
+      %th='   '
       %th Versions
-      %th Homepage
     %tbody
-      -@gems.each do |gem_name, specs|
+      -@gems.each do |gem|
         %tr.gem
-          %td.name=link_to_gem(specs.first)
-          %td.versions=specs.collect {|spec| link_to_gem(spec, :text => spec.version) }.join(', ')
-          %td=link_to(specs.first.homepage)
+          %td.name=link_to_gem(gem[:name])
+          %td/
+          %td.versions=AllGems.db[:versions].filter(:gem_id => gem[:id]).order(:version.desc).map{|v| link_to_gem(gem[:name], :version => v[:version], :text => v[:version])}.join(', ')
         %tr.gem.summary
           %td/
-          %td.description{:colspan => 2}=specs.first.summary
-  =will_paginate(@gems)
+          %td/
+          %td.description=gem[:summary]
 - else
   =haml(:no_results, :layout => false)

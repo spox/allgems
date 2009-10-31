@@ -16,8 +16,8 @@
     -if @gem.has_rdoc?
       %p.url 
         Docs: 
-        =link_to("View Local RDoc", "/gems/doc/#{@gem.name}/#{@gem.version}")
-    -unless @gem.rubyforge_project.blank?
+        =link_to("View Local RDoc", "/docs/#{@gem.name}/#{@gem.version}/doc/")
+    -unless @gem.rubyforge_project..nil?
       %p.url
         Rubyforge:
         =link_to("http://rubyforge.org/projects/#{@gem.rubyforge_project}")
@@ -34,15 +34,8 @@
   #versions.toggle_area
     %table
       %tbody
-        -@gem_versions.each do |spec|
+        -@versions.each do |info|
           %tr
-            %td=link_to(spec.version, "/gems/#{spec.name}/#{spec.version}")
-            %td=ts(spec.date)
-        
-  %h3.toggler Files
-  #files.toggle_area
-    %ul.files
-      =haml(:file_tree, :locals => {:dir => '/', :files => {}, :parent => ''}, :layout => false)
-      -@gem.files_tree.each do |dir, files|
-        =haml(:file_tree, :locals => {:dir => dir, :files => files, :parent => dir}, :layout => false)
+            %td=link_to(info[:version], "/gems/#{@gem.name}/#{info[:version]}")
+            %td=ts(info[:release])
         
