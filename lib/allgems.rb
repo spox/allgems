@@ -20,6 +20,10 @@ module AllGems
             Sequel::Migrator.apply(db, "#{File.expand_path(__FILE__).gsub(/\/[^\/]+$/, '')}/allgems/migrations")
             self.db = db
         end
+        # Location of public directory
+        def public_directory
+            File.expand_path("#{__FILE__}/../../public")
+        end
         # Total number of unique gem names installed
         def total_gems
             return 0 if self.db.nil?
@@ -38,7 +42,7 @@ module AllGems
             end
             @ti
         end
-
+        # Newest gem based on release date
         def newest_gem
             g = AllGems.db[:versions].join(:gems, :id => :gem_id).order(:release.desc).limit(1).select(:name, :release).first
             {:name => g[:name], :release => g[:release]}
