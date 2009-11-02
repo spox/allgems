@@ -165,7 +165,8 @@ module AllGems
                 gid = gid.nil? ? db[:gems].insert(:name => spec.name) : gid[:id]
                 pid = db[:platforms].filter(:platform => spec.platform).first
                 pid = pid.nil? ? db[:platforms].insert(:platform => spec.platform) : pid[:id]
-                db[:versions] << {:version => spec.version.version, :gem_id => gid, :platform_id => pid, :release => spec.date}
+                vid = db[:versions] << {:version => spec.version.version, :gem_id => gid, :platform_id => pid, :release => spec.date}
+                db[:specs] << {:version_id => vid, :spec => [Marshal.dump(spec)].pack('m')}
                 db[:gems].filter(:id => gid).update(:summary => spec.summary)
                 db[:gems].filter(:id => gid).update(:description => spec.description)
             end
