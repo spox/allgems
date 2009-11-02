@@ -18,8 +18,15 @@ Class.new(Sequel::Migration) do
             index [:gem_id, :version, :platform_id], :unique => true
             primary_key :id, :null => false
         end
+        create_table(:specs) do
+            String :spec, :null => false
+            foreign_key :version_id, :table => :versions, :null => false
+            index [:spec, :version_id], :unique => true
+            primary_key :id, :null => false
+        end
     end
     def down
+        drop_table(:specs)
         drop_table(:versions)
         drop_table(:platforms)
         drop_table(:gems)
