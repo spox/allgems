@@ -1,6 +1,7 @@
 require 'sinatra'
 require 'allgems/ViewHelpers'
-require 'allgems/GemWorker'
+require 'allgems/Specer'
+require 'rubygems/specification'
 
 module AllGems
     
@@ -56,7 +57,7 @@ module AllGems
         def load_gem_spec(gem, version=nil)
             version ||= get_latest(gem)
             raise 'failed gem' unless version
-            GemWorker.get_spec(gem, version)[0]
+            Specer.get_spec(gem, version)
         end
 
         # gem:: name of the gem
