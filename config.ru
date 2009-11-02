@@ -6,8 +6,8 @@ AllGems.defaulterize
 
 # SET THESE IF YOU DON'T WANT DEFAULTS #
 
-AllGems.data_directory = data_dir
-AllGems.initialize_db(Sequel.connect("sqlite://#{db_file}"))
+AllGems.data_directory = ENV['DATA_DIR']
+AllGems.initialize_db(Sequel.connect("sqlite://#{ENV['DATA_DB']}"))
 
 disable :run
 AllGems::App.set({
