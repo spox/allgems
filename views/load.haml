@@ -1,0 +1,16 @@
+%html{:xmlns=> "http://www.w3.org/1999/xhtml", 'xml:lang' => "en", :lang => "en"}
+  %head
+    %meta{'http-equiv' => "Content-Type", 'content' => "text/html; charset=utf-8"}
+    %title Gembox
+    %link{'href' => '/stylesheets/gembox.css', 'rel' => 'stylesheet', 'type' => 'text/css', 'media' => 'screen'}
+    -['jquery', 'jquery.ui', 'jquery.metadata', 'jquery.form', 'base', 'gembox'].each do |jslib|
+      %script{'type' => 'text/javascript', 'src' => "/javascripts/#{jslib}.js"}
+  %body
+    #container
+      #smallnav
+        .back_link=link_to_gem(@gem_name, :version => @gem_version, :text => '&laquo Back to AllGems')
+        .viewing
+          Viewing RDoc for
+          =@gem_name
+          &nbsp;
+          =@gem_version
