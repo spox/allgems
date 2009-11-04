@@ -153,6 +153,7 @@ Apache virtual host configuration:
         <Location "/docs">
                 PassengerEnabled off
                 RewriteEngine on
+                RewriteRule allgems.db / [R]
                 RewriteRule ^.+?rdoc.*?/tmp/allgems/(.*)$ /docs/$1 [R]
         </Location>
         <Location "#{AllGems.data_directory}">
@@ -161,7 +162,10 @@ Apache virtual host configuration:
                 RewriteRule .*?rdocs/.*?/tmp/allgems/(.+)$ /docs/$1 [R]
                 RewriteRule (.*) /docs/$1 [R]
         </Location>
-
+        <Directory #{AllGems.data_directory}>
+                Options -Indexes
+        </Directory>
+        ErrorDocument 403 /gems
         DocumentRoot #{AllGems.public_directory}
 </VirtualHost>
 
