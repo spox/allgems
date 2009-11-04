@@ -13,6 +13,7 @@ module AllGems
             @db = Sequel.connect("sqlite://#{args[:db_path]}")
             AllGems.initialize_db(@db)
             @pool = ActionPool::Pool.new(:max_threads => args[:runners] ? args[:runners] : 10)
+            GemWorker.setup
             @index = IndexBuilder.new(:database => @db)
             @interval = args[:interval] ? args[:interval] : nil
             @timer = nil
