@@ -1,10 +1,16 @@
-=== AllGems
+= AllGems
 
-About:
+== Description
 
-    Hi. This is a new project that has just gotten started. It's
-    an ambitious attempt to do a great thing. It's not done. I
-    hope that it will be soon. And this README will get updated
-    as soon as it is!
+AllGems is a simple project with a hefty goal: Provide easy access to documentation for all RubyGem files.
 
-    - spox
+== How?
+
+==== Backend
+
+AllGems runs a small daemon that monitors the index of any sources registered with the locally installed RubyGems. This daemon automatically retrieves, unpacks, and generates documentation on libraries as they are released.
+
+==== Frontend
+
+AllGems uses a heavily modified version of Gembox to allow access to available documentation.
+
