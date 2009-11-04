@@ -17,6 +17,9 @@ module AllGems
             @index = IndexBuilder.new(:database => @db)
             @interval = args[:interval] ? args[:interval] : nil
             @timer = nil
+            @lock = Mutex.new
+            @guard = ConditionVariable.new
+            @stop = false
         end
         
         def do_sync
@@ -36,19 +39,20 @@ module AllGems
                 @pool.add_jobs(@index.build_array(@index.local_array).collect{|x| lambda{GemWorker.process({:database => @db}.merge(x))}})
             end
             begin
-                lock = Mutex.new
-                guard = ConditionVariable.new
-                @pool << lambda{lock.synchronize{guard.signal}}
-                lock.synchronize{guard.wait(lock)}
-            rescue Exception => boom
+                @pool << lambda{@lock.synchronize{@guard.signal}}
+                @lock.synchronize{@guard.wait(@lock)}
+            rescue StandardError => boom
                 AllGems.logger.error boom.to_s
-                retry
+                retry unless @stop
             end
         end
         # Stop the runner
         def stop(now=false)
             @timer.clear if @timer
+            @stop = true
+            @lock.synchronize{@guard.broadcast}
             @pool.shutdown(now)
+            GemWorker.pool.shutdown(now)
         end
 
     end
