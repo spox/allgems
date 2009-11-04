@@ -1,7 +1,7 @@
 require 'logger'
 module AllGems
     class << self
-        attr_accessor :data_directory, :logger, :db
+        attr_accessor :data_directory, :logger, :db, :allgems
         def defaulterize
             @data_directory = nil
             @doc_format = ['rdoc']
@@ -9,6 +9,7 @@ module AllGems
             @db = nil
             @tg = nil
             @ti = nil
+            @allgems = true
             @refresh = Time.now.to_i + 3600
         end
         # db: Sequel::Database

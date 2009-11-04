@@ -8,6 +8,7 @@ def display_help
     $stdout.puts "\t\tAllGems - Document Everything
 usage: allgems [opts]
 --config -c:\t\t\t\tOutput apache configuration
+--notall -n:\t\t\t\tDon't fetch all versions
 --daemonize -D:\t\t\t\tRun as a daemon
 --datadir -d /path:\t\t\tData directory for documents/gems (defaults to /tmp/allgems)
 --dbfile -b /path/file.db\t\tPath to sqlite file (defaults datadir/allgems.db)
@@ -36,6 +37,7 @@ runners = 10 # default to 10 threads
 dbfile = nil
 logto = nil
 level = Logger::INFO
+all = true
 
 # figure out what we are doing
 opts = GetoptLong.new(
@@ -49,7 +51,8 @@ opts = GetoptLong.new(
     ['--log', '-L', GetoptLong::OPTIONAL_ARGUMENT],
     ['--verbosity', '-V', GetoptLong::OPTIONAL_ARGUMENT],
     ['--help', '-h', GetoptLong::NO_ARGUMENT],
-    ['--config', '-c', GetoptLong::NO_ARGUMENT]
+    ['--config', '-c', GetoptLong::NO_ARGUMENT],
+    ['--notall', '-n', GetoptLong::NO_ARGUMENT]
 )
 
 opts.each do |opt, arg|
@@ -85,6 +88,8 @@ opts.each do |opt, arg|
                 else
                     level = Logger::INFO
             end
+        when '--notall'
+            all = false
         when '--config'
             config_output = true
         when '--help'
@@ -138,6 +143,7 @@ AllGems.defaulterize
 AllGems.data_directory = datadir
 AllGems.doc_format = formatter unless formatter.nil?
 AllGems.logger = Logger.new(logto, level)
+AllGems.all = all
 
 # are we just giving out configuration?
 if(config_output)

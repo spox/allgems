@@ -6,7 +6,7 @@ module AllGems
         end
         def build_array(filter=[])
             b = []
-            Gem::SpecFetcher.fetcher.list(true).each_pair{|uri, x| b = b | x.reject{|a|filter.include?(a)}.map{|c|{:name => c[0], :version => c[1]}}}
+            Gem::SpecFetcher.fetcher.list(AllGems.allgems).each_pair{|uri, x| b = b | x.reject{|a|filter.include?(a)}.map{|c|{:name => c[0], :version => c[1]}}}
             b
         end
         def local_array
