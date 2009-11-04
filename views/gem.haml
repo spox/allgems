@@ -13,11 +13,12 @@
     %p.url
       Homepage: 
       =link_to(@gem.homepage)
-    -if @gem.has_rdoc?
-      %p.url 
-        Docs: 
-        =link_to("View Local RDoc", "/docs/#{@gem.name}/#{@gem.version}/doc/")
-    -unless @gem.rubyforge_project..nil?
+    %p.url 
+      Documentation:
+      =link_to("RDoc", "/docs/#{@gem.name}/#{@gem.version}/doc/rdoc") if File.exists?("#{AllGems.data_directory}/#{@gem.name}/#{@gem.version}/doc/rdoc")
+      =link_to("SDoc", "/docs/#{@gem.name}/#{@gem.version}/doc/sdoc") if File.exists?("#{AllGems.data_directory}/#{@gem.name}/#{@gem.version}/doc/sdoc")
+      =link_to("Hanna", "/docs/#{@gem.name}/#{@gem.version}/doc/hanna") if File.exists?("#{AllGems.data_directory}/#{@gem.name}/#{@gem.version}/doc/hanna")
+    -unless @gem.rubyforge_project.nil?
       %p.url
         Rubyforge:
         =link_to("http://rubyforge.org/projects/#{@gem.rubyforge_project}")
