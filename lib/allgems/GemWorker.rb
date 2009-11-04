@@ -9,7 +9,7 @@ module AllGems
             def setup
                 @glock = Mutex.new
                 @slock = Mutex.new
-                @pool = ActionPool::Pool.new(:max_threads => 10)
+                @pool = ActionPool::Pool.new(:max_threads => 10, :a_to => 60*5)
             end
             # :name:: name of the gem
             # :version:: version of the gem
@@ -127,7 +127,7 @@ module AllGems
                             command = 'sdoc'
                             args << '-T direct' << "-o #{dir}/doc/sdoc" << "#{dir}/unpack"
                         when :hanna
-                            command = 'hanna'
+                            command = "ruby #{AllGems.hanna_hack}"
                             args << "-o #{dir}/doc/hanna" << "#{dir}/unpack"
                         else
                             raise DocError.new(spec.name, spec.version)

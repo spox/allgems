@@ -60,6 +60,9 @@ module AllGems
             g = AllGems.db[:versions].join(:gems, :id => :gem_id).order(:release.desc).limit(1).select(:name, :release).first
             {:name => g[:name], :release => g[:release]}
         end
-
+        # Path to hanna hack
+        def hanna_hack
+            File.expand_path("#{__FILE__}/../allgems/hanna_hack.rb")
+        end
     end
 end
