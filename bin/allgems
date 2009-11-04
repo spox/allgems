@@ -11,7 +11,7 @@ usage: allgems [opts]
 --daemonize -D:\t\t\t\tRun as a daemon
 --datadir -d /path:\t\t\tData directory for documents/gems (defaults to /tmp/allgems)
 --dbfile -b /path/file.db\t\tPath to sqlite file (defaults datadir/allgems.db)
---formatter -f darkfish:\t\tRDoc formatter (defaults to darkfish)
+--formatter -f rdoc[,hanna,sdoc]:\t\tRDoc formatter (defaults to rdoc (which is darkfish))
 --interval -i \\d+:\t\t\tSeconds to wait before updating documents (defaults to 1 hour)
 --runners -r \\d+:\t\t\tNumber of threads to use (defaults to 10)
 --log -L [/path/file]:\t\t\tTurn logging on (no argument defaults to STDOUT)
@@ -38,7 +38,7 @@ opts = GetoptLong.new(
     ['--daemonize', '-D', GetoptLong::NO_ARGUMENT],
     ['--datadir', '-d', GetoptLong::REQUIRED_ARGUMENT],
     ['--dbfile', '-b', GetoptLong::REQUIRED_ARGUMENT],
-    ['--format', '-f', GetoptLong::REQUIRED_ARGUMENT],
+    ['--formatter', '-f', GetoptLong::REQUIRED_ARGUMENT],
     ['--interval', '-i', GetoptLong::REQUIRED_ARGUMENT],
     ['--runners', '-r', GetoptLong::REQUIRED_ARGUMENT],
     ['--version', '-v', GetoptLong::NO_ARGUMENT],
@@ -130,7 +130,7 @@ end
 # set everything
 AllGems.defaulterize
 AllGems.data_directory = datadir
-AllGems.rdoc_format = formatter
+AllGems.doc_format = formatter unless formatter.nil?
 AllGems.logger = Logger.new(logto, level)
 
 # are we just giving out configuration?
@@ -151,13 +151,12 @@ Apache virtual host configuration:
         <Location "/docs">
                 PassengerEnabled off
                 RewriteEngine on
-                RewriteRule ^/docs/(.*?)#{AllGems.data_directory}/(.*)$ /docs/$2 [R]
-                RewriteRule ^.+?#{AllGems.data_directory}/(.*)$ /docs/$1 [R]
+                RewriteRule ^.+?rdoc.*?/tmp/allgems/(.*)$ /docs/$1 [R]
         </Location>
         <Location "#{AllGems.data_directory}">
                 PassengerEnabled off
                 RewriteEngine on
-                RewriteRule .*?#{AllGems.data_directory}/(.+)$ /docs/$1 [R]
+                RewriteRule .*?rdocs/.*?/tmp/allgems/(.+)$ /docs/$1 [R]
                 RewriteRule (.*) /docs/$1 [R]
         </Location>
 
