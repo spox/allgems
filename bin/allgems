@@ -22,6 +22,10 @@ end
 # load in our libraries
 ['logger', 'fileutils', 'getoptlong', 'allgems', 'sequel'].each{|f|require f}
 
+# figure out what system we are on
+require 'rbconfig'
+ON_WINDOWS = Config::CONFIG['host_os'] =~ /mswin|mingw/
+
 # set default values
 config_output = false
 daemonize = false
@@ -192,17 +196,14 @@ end
 
 # Make sure we play nice before we get started
 
-Process.setpriority(Process::PRIO_PROCESS, 0, 19) unless OS.windows?
+Process.setpriority(Process::PRIO_PROCESS, 0, 19) unless ON_WINDOWS
 
 # finally, lets get going
 
 require 'allgems/Runner'
 runner = AllGems::Runner.new(:db_path => dbfile, :runners => runners, :interval => interval)
-# so, can we know that windows is killing us?
-unless(OS.windows?)
-    trap('SIGINT'){runner.stop(true)}
-    trap('SIGHUP'){runner.stop; runner.do_sync}
-end
+trap('SIGINT'){runner.stop(true)}
+trap('SIGHUP'){runner.stop; runner.do_sync}
 runner.do_sync
 runner.stop unless daemonize
 exit SUCCESS
