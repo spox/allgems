@@ -1,11 +1,10 @@
 require 'logger'
 module AllGems
     class << self
-        attr_accessor :data_directory, :rdoc_format, :rdoc_version, :logger, :db
+        attr_accessor :data_directory, :logger, :db
         def defaulterize
             @data_directory = nil
-            @rdoc_format = 'darkfish'
-            @rdoc_version = '2.3.0' # hanna is dependent on this
+            @doc_format = ['darkfish']
             @logger = Logger.new(nil)
             @db = nil
             @tg = nil
@@ -19,6 +18,20 @@ module AllGems
             require 'sequel/extensions/migration'
             Sequel::Migrator.apply(db, "#{File.expand_path(__FILE__).gsub(/\/[^\/]+$/, '')}/allgems/migrations")
             self.db = db
+        end
+        # Format for documentation
+        def doc_format
+            @doc_format
+        end
+        # f:: format
+        # Sets format for documentation. Should be one of: hanna, rdoc, sdoc
+        def doc_format=(f)
+            @doc_format = []
+            f.split(',').each do |type|
+                type = type.to_sym
+                raise ArgumentError.new("Valid types: hanna, sdoc, rdoc") unless [:hanna,:sdoc,:rdoc].include?(type)
+                @doc_format << type
+            end
         end
         # Location of public directory
         def public_directory
