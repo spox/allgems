@@ -5,6 +5,7 @@ require 'rubygems/installer'
 module AllGems
     class GemWorker
         class << self
+            attr_reader :pool
             # Get the worker ready to go
             def setup
                 @glock = Mutex.new
@@ -53,7 +54,7 @@ module AllGems
                     file.write(self.fetch_remote(remote_uri))
                     file.close
                     save_path
-                rescue Exception => boom
+                rescue StandardError => boom
                     raise FetchError.new(spec.name, spec.version, remote_path, boom)
                 end
             end
@@ -155,7 +156,7 @@ module AllGems
                 status = nil
                 begin
                     pro = IO.popen(command)
-                    Process.setpriority(Process::PRIO_PROCESS, pro.pid, 19) unless OS.windows?
+                    Process.setpriority(Process::PRIO_PROCESS, pro.pid, 19) unless ON_WINDOWS
                     until(pro.closed? || pro.eof?)
                         output << pro.gets
                     end
