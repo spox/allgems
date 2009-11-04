@@ -54,7 +54,7 @@ module AllGems
                     file.close
                     save_path
                 rescue Exception => boom
-                    raise FetchError.new(spec.name, spec.version, remote_path)
+                    raise FetchError.new(spec.name, spec.version, remote_path, boom)
                 end
             end
 
@@ -131,7 +131,7 @@ module AllGems
                             command = "ruby #{AllGems.hanna_hack}"
                             args << "-o #{dir}/doc/hanna" << "#{dir}/unpack"
                         else
-                            raise DocError.new(spec.name, spec.version)
+                            next # if we don't know what to do with it, skip it
                     end
                     action = lambda do |dir, command, args, f|
                         FileUtils.rm_r("#{dir}/doc/#{f}", :force => true) # make sure we are clean before we get dirty
@@ -149,6 +149,7 @@ module AllGems
             # Runs a command. Returns true if status returns 0. If return_output is true,
             # return value is: [status, output]
             def run_command(command, return_output=false)
+                AllGems.logger.debug "Command to be executed: #{command}"
                 pro = nil
                 output = []
                 status = nil
@@ -186,11 +187,19 @@ module AllGems
                 true
             end
 
+            # Make a parent error class that we can specialize
+            class Error < StandardError
+                attr_reader :original
+                def initialize(e=nil)
+                    @original = e.nil? ? self : e
+                end
+            end
+
             # Exception class for failed documentation creation
-            class DocError < StandardError
-                attr_reader :gem_name
-                attr_reader :gem_version
-                def initialize(gn, gv)
+            class DocError < Error
+                attr_reader :gem_name, :gem_version
+                def initialize(gn, gv, e=nil)
+                    super(e)
                     @gem_name = gn
                     @gem_version = gv
                 end
@@ -199,14 +208,17 @@ module AllGems
                 end
             end
 
-            class FetchError < StandardError
-                attr_reader :gem_name
-                attr_reader :gem_version
-                attr_reader :uri
-                def initialize(gn, gv, u)
+            # Exception class for failed gem fetching
+            class FetchError < Error
+                attr_reader :gem_name, :gem_version, :uri
+                def initialize(gn, gv, u, e=nil)
+                    super(e)
                     @gem_name = gn
                     @gem_version = gv
                     @uri = u
+                end
+                def to_s
+                    "Failed to fetch #{@gem_name}-#{@gem_version}.gem from #{uri}"
                 end
             end
         end
