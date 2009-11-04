@@ -4,7 +4,7 @@ module AllGems
         attr_accessor :data_directory, :logger, :db
         def defaulterize
             @data_directory = nil
-            @doc_format = ['darkfish']
+            @doc_format = ['rdoc']
             @logger = Logger.new(nil)
             @db = nil
             @tg = nil

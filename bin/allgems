@@ -15,7 +15,7 @@ usage: allgems [opts]
 --interval -i \\d+:\t\t\tSeconds to wait before updating documents (defaults to 1 hour)
 --runners -r \\d+:\t\t\tNumber of threads to use (defaults to 10)
 --log -L [/path/file]:\t\t\tTurn logging on (no argument defaults to STDOUT)
---verbosity -V [(info|warn|fatal)]:\tLogging level (no argument defaults to info)
+--verbosity -V [(debug|info|warn|fatal)]:\tLogging level (no argument defaults to info)
 --help -h:\t\t\t\tDisplay this help text"
 end
 
@@ -68,6 +68,8 @@ opts.each do |opt, arg|
             logto = arg.empty? ? $stdout: arg
         when '--verbosity'
             case arg
+                when 'debug'
+                    level = Logger::DEBUG
                 when 'info'
                     level = Logger::INFO
                 when 'warn'
@@ -186,14 +188,17 @@ end
 
 # Make sure we play nice before we get started
 
-Process.setpriority(Process::PRIO_PROCESS, 0, 19)
+Process.setpriority(Process::PRIO_PROCESS, 0, 19) unless OS.windows?
 
 # finally, lets get going
 
 require 'allgems/Runner'
 runner = AllGems::Runner.new(:db_path => dbfile, :runners => runners, :interval => interval)
-trap('SIGINT'){runner.stop(true)}
-trap('SIGHUP'){runner.stop; runner.do_sync}
+# so, can we know that windows is killing us?
+unless(OS.windows?)
+    trap('SIGINT'){runner.stop(true)}
+    trap('SIGHUP'){runner.stop; runner.do_sync}
+end
 runner.do_sync
 runner.stop unless daemonize
 exit SUCCESS

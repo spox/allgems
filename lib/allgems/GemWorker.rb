@@ -49,8 +49,9 @@ module AllGems
                 begin
                     remote_path = "#{uri}/gems/#{spec.full_name}.gem"
                     remote_uri = URI.parse(remote_path)
-                    file = File.open(save_path, 'w')
+                    file = File.open(save_path, 'wb')
                     file.write(self.fetch_remote(remote_uri))
+                    file.close
                     save_path
                 rescue Exception => boom
                     raise FetchError.new(spec.name, spec.version, remote_path)
@@ -119,7 +120,7 @@ module AllGems
                 AllGems.doc_format.each do |f|
                     command = nil
                     args = []
-                    case f
+                    case f.to_sym
                         when :rdoc
                             command = 'rdoc'
                             args << '--format=darkfish' << '-aFNqH' << "--op=#{dir}/doc/rdoc" << "#{dir}/unpack"
@@ -153,7 +154,7 @@ module AllGems
                 status = nil
                 begin
                     pro = IO.popen(command)
-                    Process.setpriority(Process::PRIO_PROCESS, pro.pid, 19)
+                    Process.setpriority(Process::PRIO_PROCESS, pro.pid, 19) unless OS.windows?
                     until(pro.closed? || pro.eof?)
                         output << pro.gets
                     end
