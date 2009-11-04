@@ -52,6 +52,20 @@ module AllGems
             haml :gem
         end
 
+        get %r{/doc/(.+)} do
+            parts = params[:captures][0].split('/')
+            @gem_name = parts[0]
+            @gem_version = parts[1]
+            @path = "/docs/#{params[:captures][0]}"
+            haml :doc, :layout => false
+        end
+
+        get %r{/load/([^/]+)/(.+)/?} do
+            @gem_name = params[:captures][0]
+            @gem_version = params[:captures][1]
+            haml :load, :layout => false
+        end
+
         private
 
         def load_gem_spec(gem, version=nil)
