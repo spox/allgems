@@ -5,6 +5,9 @@
   - if @gem.description
     .description
       =rdocify @gem.description
+  - if @gem.summary
+    .description
+      =rdocify @gem.summary
   .meta
     %p.authors
       By 
