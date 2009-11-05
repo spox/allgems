@@ -1,16 +1,21 @@
 Class.new(Sequel::Migration) do
     def up
-        create_table(:gems) do
-            String :name, :null => false, :unique => true
-            String :summary
-            String :description
-            primary_key :id, :null => false
-        end
-        create_table(:platforms) do
+        AllGems.db << "CREATE TABLE gems (
+                        name VARCHAR NOT NULL UNIQUE COLLATE NOCASE,
+                        summary TEXT,
+                        description TEXT,
+                        id INTEGER NOT NULL PRIMARY KEY)"
+#         create_table(:gems) do
+#             String :name, :null => false, :unique => true
+#             String :summary
+#             String :description
+#             primary_key :id, :null => false
+#         end
+        AllGems.db.create_table(:platforms) do
             String :platform, :null => false, :unique => true
             primary_key :id, :null => false
         end
-        create_table(:versions) do
+        AllGems.db.create_table(:versions) do
             String :version, :null => false
             Time :release, :null => false
             foreign_key :gem_id, :table => :gems, :null => false
@@ -18,7 +23,7 @@ Class.new(Sequel::Migration) do
             index [:gem_id, :version, :platform_id], :unique => true
             primary_key :id, :null => false
         end
-        create_table(:specs) do
+        AllGems.db.create_table(:specs) do
             String :spec, :null => false
             foreign_key :version_id, :table => :versions, :null => false
             index [:spec, :version_id], :unique => true
@@ -26,9 +31,9 @@ Class.new(Sequel::Migration) do
         end
     end
     def down
-        drop_table(:specs)
-        drop_table(:versions)
-        drop_table(:platforms)
-        drop_table(:gems)
+        AllGems.db.drop_table(:specs)
+        AllGems.db.drop_table(:versions)
+        AllGems.db.drop_table(:platforms)
+        AllGems.db.drop_table(:gems)
     end
 end
