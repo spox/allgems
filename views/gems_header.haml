@@ -5,7 +5,7 @@
     %span.num="(#{@search ? @gems.count : AllGems.total_gems})"
   -else
     Installed Gems
-    %span.num="(#{AllGems.total_installs})"
+    %span.num="(#{AllGems.total_gems})"
   %span.view_options
     View as
     =(@show_as == 'columns') ? '<strong>Columns</strong>' : link_to('Columns', {'as' => 'columns'})
