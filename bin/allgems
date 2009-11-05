@@ -143,7 +143,7 @@ AllGems.defaulterize
 AllGems.data_directory = datadir
 AllGems.doc_format = formatter unless formatter.nil?
 AllGems.logger = Logger.new(logto, level)
-AllGems.all = all
+AllGems.allgems = all
 
 # are we just giving out configuration?
 if(config_output)
