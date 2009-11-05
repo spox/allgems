@@ -2,7 +2,7 @@
   -if @search 
     Gems matching
     %em=@search 
-    %span.num="(#{AllGems.total_gems})"
+    %span.num="(#{@search ? @gems.count : AllGems.total_gems})"
   -else
     Installed Gems
     %span.num="(#{AllGems.total_installs})"
