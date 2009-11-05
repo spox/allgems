@@ -5,10 +5,20 @@
             .column
                 .gem
                     %h4.name=link_to_gem(gem[:name])
-                    .description=gem[:summary]
+                    .description
+                        - index = gem[:summary].index(' ', 50)
+                        - if index
+                            ="#{gem[:summary].slice(0,index)}..."
+                        - else
+                            =gem[:summary]
                     .versions
                         %span
                             =AllGems.db[:versions].filter(:gem_id => gem[:id]).order(:version.desc).map{|v| link_to_gem(gem[:name], :version => v[:version], :text => v[:version])}.join(', ')
         .clear
+    .div{:style => 'text-align: center; padding: 15px;'}
+        =@page > 1 ? link_to('< prev', 'page' => @page - 1) : '< prev'
+        |
+        =link_to('next >', 'page' => @page + 1)
 - else
     =haml(:no_results, :layout => false)
+
