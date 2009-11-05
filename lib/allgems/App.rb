@@ -30,16 +30,15 @@ module AllGems
         get '/gems/?' do
             show_layout = params[:layout] != 'false'
             @show_as = params[:as] && params[:as] == 'table' ? 'table' : 'columns'
+            set = AllGems.db[:gems].order(:name.asc)
+            @page = params[:page] ? params[:page].to_i : 1
             if(@search = params[:search])
-                @gems = do_search(params[:search])
-                if(@gems.size == 1)
-                    redirect "/gems/#{@gems[:name]}" # send user on their way if we only get one result
+                set = do_search(params[:search])
+                if(set.count == 1)
+                    redirect "/gems/#{set.first[:name]}" # send user on their way if we only get one result
                 end
-            else
-                page = params[:page] ? params[:page].to_i : 1
-                @gems = AllGems.db[:gems].paginate(page, 30)
-                puts "we have #{@gems.count} gems"
             end
+            @gems = set.paginate(@page, 30)
             haml "gems_#{@show_as}".to_sym, :layout => show_layout
         end
 
@@ -78,6 +77,16 @@ module AllGems
         # Returns the latest version of the given gem or nil
         def get_latest(gem)
             AllGems.db[:versions].join(:gems, :id => :gem_id).filter(:name => gem).order(:version.desc).limit(1).select(:version).map(:version)[0]
+        end
+
+        # terms:: terms to search on
+        # 
+        def do_search(terms)
+            terms = terms.split.map{|t|"%#{t}%"}
+            names = AllGems.db[:gems].filter("#{[].fill('name LIKE ?', 0, terms.size).join(' OR ')}", *terms).order(:name.asc)
+            desc = AllGems.db[:gems].filter("#{[].fill('description LIKE ?', 0, terms.size).join(' OR ')}", *terms).order(:name.asc)
+            summ = AllGems.db[:gems].filter("#{[].fill('summary LIKE ?', 0, terms.size).join(' OR ')}", *terms).order(:name.asc)
+            names.union(desc).union(summ)
         end
     end
 end
