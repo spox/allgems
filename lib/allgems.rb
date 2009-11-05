@@ -16,9 +16,9 @@ module AllGems
         # Run any migrations needed
         # NOTE: Call before using the database
         def initialize_db(db)
+            self.db = db
             require 'sequel/extensions/migration'
             Sequel::Migrator.apply(db, "#{File.expand_path(__FILE__).gsub(/\/[^\/]+$/, '')}/allgems/migrations")
-            self.db = db
         end
         # Format for documentation
         def doc_format
