@@ -209,7 +209,7 @@ Process.setpriority(Process::PRIO_PROCESS, 0, 19) unless ON_WINDOWS
 require 'allgems/Runner'
 runner = AllGems::Runner.new(:db_path => dbfile, :runners => runners, :interval => interval)
 trap('SIGINT'){runner.stop(true)}
-trap('SIGHUP'){runner.stop; runner.do_sync}
+trap('SIGHUP'){runner.stop; runner.do_sync} unless ON_WINDOWS
 runner.do_sync
 runner.stop unless daemonize
 exit SUCCESS
