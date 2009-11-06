@@ -82,11 +82,48 @@ module AllGems
         # terms:: terms to search on
         # TODO: This needs to be redone to provide proper searching. Hopefully with FTS support
         def do_search(terms)
-            terms = terms.split.map{|t|"%#{t}%"}
-            names = AllGems.db[:gems].filter("#{[].fill('name LIKE ?', 0, terms.size).join(' OR ')}", *terms).order(:name.asc)
-            desc = AllGems.db[:gems].filter("#{[].fill('description LIKE ?', 0, terms.size).join(' OR ')}", *terms).order(:name.asc)
-            summ = AllGems.db[:gems].filter("#{[].fill('summary LIKE ?', 0, terms.size).join(' OR ')}", *terms).order(:name.asc)
-            names.union(desc).union(summ)
+            terms = terms.split
+            methods = terms.select{|x|x.downcase.slice(0, 'method:'.length) == 'method:'}
+            classes = terms.select{|x|x.downcase.slice(0, 'class:'.length) == 'class:'}
+            terms = terms.reject{|x|methods.include?(x)}.reject{|y|methods.include?(y)}.map{|z| "%#{z}%"}
+            set = nil
+            unless(methods.empty?)
+                set = search_methods(methods.map{|x|x.slice('method:'.length, x.length)})
+            end
+            unless(classes.empty?)
+                res = search_classes(classes.map{|x|x.slice('class:'.length, x.length)})
+                if(set)
+                    set.union(res)
+                else
+                    set = res
+                end
+            end
+            set = AllGems.db[:gems] unless set
+            unless(terms.empty?)
+                names = set.filter("#{[].fill('name LIKE ?', 0, terms.size).join(' OR ')}", *terms).order(:name.asc)
+                desc = set.filter("#{[].fill('description LIKE ?', 0, terms.size).join(' OR ')}", *terms).order(:name.asc)
+                summ = set.filter("#{[].fill('summary LIKE ?', 0, terms.size).join(' OR ')}", *terms).order(:name.asc)
+                names.union(desc).union(summ)
+            else
+                set
+            end
         end
+
+        def search_methods(ms)
+            ms.map!{|x|x.gsub('*', '%')}
+            res = AllGems.db[:methods].join(:classes_methods, :method_id => :id).join(:versions, :id => :version_id).filter("#{[].fill('method LIKE ?', 0, ms.size).join(' OR ')}", *ms)
+            return nil if res.empty?
+            res = AllGems.db[:gems].filter(:id => res.map(:gem_id))
+            res.empty? ? nil : res
+        end
+
+        def search_classes(ms)
+            ms.map!{|x|x.gsub('*', '%')}
+            res = AllGems.db[:classes].join(:classes_gems, :class_id => :id).join(:versions, :id => :version_id).filter("#{[].fill('class LIKE ?', 0, ms.size).join(' OR ')}", *ms)
+            return nil if res.empty?
+            res = AllGems.db[:gems].filter(:id => res.map(:gem_id))
+            res.empty? ? nil : res
+        end
+
     end
 end
