@@ -80,7 +80,7 @@ module AllGems
         end
 
         # terms:: terms to search on
-        # 
+        # TODO: This needs to be redone to provide proper searching. Hopefully with FTS support
         def do_search(terms)
             terms = terms.split.map{|t|"%#{t}%"}
             names = AllGems.db[:gems].filter("#{[].fill('name LIKE ?', 0, terms.size).join(' OR ')}", *terms).order(:name.asc)
