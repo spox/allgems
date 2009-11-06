@@ -20,4 +20,5 @@ spec = Gem::Specification.new do |s|
     s.add_dependency 'rdoc'
     s.add_dependency 'sdoc'
     s.add_dependency 'hanna'
+    s.add_dependency 'nokogiri'
 end
