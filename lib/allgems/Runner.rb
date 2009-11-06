@@ -17,9 +17,8 @@ module AllGems
             @index = IndexBuilder.new(:database => @db)
             @interval = args[:interval] ? args[:interval] : nil
             @timer = nil
-            @lock = Mutex.new
-            @guard = ConditionVariable.new
             @stop = false
+            @self = Thread.current
         end
         
         def do_sync
@@ -34,13 +33,15 @@ module AllGems
         # Get the list of gems we need and load up the pool. Then take a nap
         # until the pool gets bored and wakes us up
         def sync
+            @self = Thread.current
             Gem.refresh
-            Thread.new do
-                @pool.add_jobs(@index.build_array(@index.local_array).collect{|x| lambda{GemWorker.process({:database => @db}.merge(x))}})
-            end
+            @pool.add_jobs(@index.build_array(@index.local_array).map{|x| lambda{GemWorker.process({:database => @db}.merge(x))}})
             begin
-                @pool << lambda{@lock.synchronize{@guard.signal}}
-                @lock.synchronize{@guard.wait(@lock)}
+                @pool << lambda{@self.raise Wakeup.new}
+                sleep
+            rescue Wakeup
+                AllGems.logger.info("Runner got woken up. We are done here")
+                # okay, we're done
             rescue StandardError => boom
                 AllGems.logger.error boom.to_s
                 retry unless @stop
@@ -50,9 +51,12 @@ module AllGems
         def stop(now=false)
             @timer.clear if @timer
             @stop = true
-            @lock.synchronize{@guard.broadcast}
+            @self.raise Wakeup unless Thread.current == @self
             @pool.shutdown(now)
             GemWorker.pool.shutdown(now)
+        end
+
+        class Wakeup < Exception
         end
 
     end
