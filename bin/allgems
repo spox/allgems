@@ -7,17 +7,17 @@ CONFIGURATION_ERROR = 1
 def display_help
     $stdout.puts "\t\tAllGems - Document Everything
 usage: allgems [opts]
---config -c:\t\t\t\tOutput apache configuration
---notall -n:\t\t\t\tDon't fetch all versions
---daemonize -D:\t\t\t\tRun as a daemon
---datadir -d /path:\t\t\tData directory for documents/gems (defaults to /tmp/allgems)
---dbfile -b /path/file.db\t\tPath to sqlite file (defaults datadir/allgems.db)
+--config -c:\t\t\t\t\tOutput apache configuration
+--notall -n:\t\t\t\t\tDon't fetch all versions
+--daemonize -D:\t\t\t\t\tRun as a daemon
+--datadir -d /path:\t\t\t\tData directory for documents/gems (defaults to /tmp/allgems)
+--dbfile -b /path/file.db\t\t\tPath to sqlite file (defaults datadir/allgems.db)
 --formatter -f rdoc[,hanna,sdoc]:\t\tRDoc formatter (defaults to rdoc (which is darkfish))
---interval -i \\d+:\t\t\tSeconds to wait before updating documents (defaults to 1 hour)
---runners -r \\d+:\t\t\tNumber of threads to use (defaults to 10)
---log -L [/path/file]:\t\t\tTurn logging on (no argument defaults to STDOUT)
+--interval -i \\d+:\t\t\t\tSeconds to wait before updating documents (defaults to 1 hour)
+--runners -r \\d+:\t\t\t\tNumber of threads to use (defaults to 10)
+--log -L [/path/file]:\t\t\t\tTurn logging on (no argument defaults to STDOUT)
 --verbosity -V [(debug|info|warn|fatal)]:\tLogging level (no argument defaults to info)
---help -h:\t\t\t\tDisplay this help text"
+--help -h:\t\t\t\t\tDisplay this help text"
 end
 
 # load in our libraries
