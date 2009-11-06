@@ -29,6 +29,25 @@ Class.new(Sequel::Migration) do
             index [:spec, :version_id], :unique => true
             primary_key :id, :null => false
         end
+        AllGems.db.create_table(:classes) do
+            String :class, :null => false, :unique => true
+            primary_key :id, :null => false
+        end
+        AllGems.db.create_table(:methods) do
+            String :method, :null => false, :unique => true
+            primary_key :id, :null => false
+        end
+        AllGems.db.create_table(:classes_methods)
+            foreign_key :method_id, :table => :methods
+            foreign_key :class_id, :table => :classes
+            foreign_key :version_id, :table => :versions
+            primary_key [:method_id, :class_id, :version_id]
+        end
+        AllGems.db.create_table(:classes_gems)
+            foreign_key :class_id, :table => :classes
+            foreign_key :version_id, :table => :versions
+            primary_key [:class_id, :version_id]
+        end
     end
     def down
         AllGems.db.drop_table(:specs)
