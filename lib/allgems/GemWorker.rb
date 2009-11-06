@@ -1,7 +1,7 @@
 require 'net/http'
 require 'uri'
 require 'rubygems/installer'
-require 'allgems/Indexer'
+require 'allgems/DocIndexer'
 
 module AllGems
     class GemWorker
@@ -141,7 +141,7 @@ module AllGems
                         raise DocError.new(spec.name, spec.version) unless result
                         AllGems.logger.info "Completed documentation for #{spec.full_name}"
                         FileUtils.chmod_R(0755, "#{dir}/doc/#{f}") # fix any bad permissions
-                        Indexer.index_gem(spec, "#{dir}/doc/#{f}", f)
+                        DocIndexer.index_gem(spec, "#{dir}/doc/#{f}", f)
                     end
                     @pool << [action, [spec, dir.dup, command.dup, args.join(' '), f]]
                 end
@@ -179,9 +179,7 @@ module AllGems
                 @slock.synchronize do
                     gid = db[:gems].filter(:name => spec.name).first
                     gid = gid.nil? ? db[:gems].insert(:name => spec.name) : gid[:id]
-                    pid = db[:platforms].filter(:platform => spec.platform).first
-                    pid = pid.nil? ? db[:platforms].insert(:platform => spec.platform) : pid[:id]
-                    vid = db[:versions] << {:version => spec.version.version, :gem_id => gid, :platform_id => pid, :release => spec.date}
+                    vid = db[:versions] << {:version => spec.version.version, :gem_id => gid, :release => spec.date}
                     db[:specs] << {:version_id => vid, :spec => [Marshal.dump(spec)].pack('m')}
                     db[:gems].filter(:id => gid).update(:summary => spec.summary)
                     db[:gems].filter(:id => gid).update(:description => spec.description)
