@@ -37,8 +37,22 @@ end
 $:.unshift(hanna_dir) unless $:.include?(hanna_dir)
 
 require 'rubygems'
-gem 'rdoc', '2.3.0'
+
+# and now for some magic to make this work
+gem 'rdoc', '=2.3.0'
+module Gem
+    class << self
+        alias :fubar :find_files
+        remove_method :find_files
+    end
+end
 require 'rdoc/rdoc'
+module Gem
+    class << self
+        alias :find_files :fubar
+        remove_method :fubar
+    end
+end
 
 options = []
 
