@@ -6,12 +6,14 @@ module AllGems
         end
         def build_array(filter=[])
             b = []
-            Gem::SpecFetcher.fetcher.list(AllGems.allgems).each_pair{|uri, x| b = b | x.reject{|a|filter.include?(a)}.map{|c|{:name => c[0], :version => c[1]}}}
-            b
+            list = Gem::SpecFetcher.fetcher.list(AllGems.allgems).to_a.map{|x|x[1].map{|y|{:name => y[0],:version => y[1]}}}
+            list.size.times{|i| b = b | list[i]} # list.flatten(1) would be great but it's only on >=1.9. alas
+            AllGems.logger.debug("List size: #{b.size}")
+            b.reject{|x|filter.include?(x)}
         end
         def local_array
-            la = @db[:versions].join(:gems, :id => :gem_id).join(:platforms, :id => :versions__platform_id).select(:name, :version, :platform).all.collect{|x|x.values}
-            la.map{|a| [a[0], Gem::Version.new(a[1]), a[2]]}
+            la = @db[:versions].join(:gems, :id => :gem_id).select(:name, :version).all.collect{|x|x.values}
+            la.map{|a| {:name => a[0], :version => Gem::Version.new(a[1])}}
         end
     end
 end
