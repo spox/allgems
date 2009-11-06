@@ -1,6 +1,7 @@
 require 'net/http'
 require 'uri'
 require 'rubygems/installer'
+require 'allgems/Indexer'
 
 module AllGems
     class GemWorker
@@ -134,14 +135,15 @@ module AllGems
                         else
                             next # if we don't know what to do with it, skip it
                     end
-                    action = lambda do |dir, command, args, f|
+                    action = lambda do |spec, dir, command, args, f|
                         FileUtils.rm_r("#{dir}/doc/#{f}", :force => true) # make sure we are clean before we get dirty
                         result = self.run_command("#{command} #{args}")
                         raise DocError.new(spec.name, spec.version) unless result
                         AllGems.logger.info "Completed documentation for #{spec.full_name}"
                         FileUtils.chmod_R(0755, "#{dir}/doc/#{f}") # fix any bad permissions
+                        Indexer.index_gem(spec, "#{dir}/doc/#{f}", f)
                     end
-                    @pool << [action, [dir.dup, command.dup, args.join(' '), f]]
+                    @pool << [action, [spec, dir.dup, command.dup, args.join(' '), f]]
                 end
             end
 
