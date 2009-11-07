@@ -80,26 +80,28 @@ module AllGems
         end
 
         # terms:: terms to search on
+        # Search terms will be parsed and limited to a class/method reduced subset if given. This means
+        # search terms given like:
+        #   "class:Timer thread"
+        # will search for all gems containing a Timer class, then search that subset using the term "thread". 
         # TODO: This needs to be redone to provide proper searching. Hopefully with FTS support
         def do_search(terms)
-            terms = terms.split
-            methods = terms.select{|x|x.downcase.slice(0, 'method:'.length) == 'method:'}
-            classes = terms.select{|x|x.downcase.slice(0, 'class:'.length) == 'class:'}
-            terms = terms.reject{|x|methods.include?(x)}.reject{|y|methods.include?(y)}.map{|z| "%#{z}%"}
+            terms, methods, classes = parse_terms(terms)
             set = nil
             unless(methods.empty?)
-                set = search_methods(methods.map{|x|x.slice('method:'.length, x.length)})
+                set = search_methods(methods)
             end
             unless(classes.empty?)
-                res = search_classes(classes.map{|x|x.slice('class:'.length, x.length)})
+                res = search_classes(classes)
                 if(set)
-                    set.union(res)
+                    set.union(res) unless res.nil?
                 else
                     set = res
                 end
             end
             set = AllGems.db[:gems] unless set
             unless(terms.empty?)
+                puts "doing basic search: #{terms}"
                 names = set.filter("#{[].fill('name LIKE ?', 0, terms.size).join(' OR ')}", *terms).order(:name.asc)
                 desc = set.filter("#{[].fill('description LIKE ?', 0, terms.size).join(' OR ')}", *terms).order(:name.asc)
                 summ = set.filter("#{[].fill('summary LIKE ?', 0, terms.size).join(' OR ')}", *terms).order(:name.asc)
@@ -109,6 +111,8 @@ module AllGems
             end
         end
 
+        # ms:: Array of terms to search
+        # Searches for any methods matching terms
         def search_methods(ms)
             ms.map!{|x|x.gsub('*', '%')}
             res = AllGems.db[:methods].join(:classes_methods, :method_id => :id).join(:versions, :id => :version_id).filter("#{[].fill('method LIKE ?', 0, ms.size).join(' OR ')}", *ms)
@@ -117,12 +121,49 @@ module AllGems
             res.empty? ? nil : res
         end
 
+        # ms:: Array of terms to search
+        # Searches for any classes matching terms
         def search_classes(ms)
             ms.map!{|x|x.gsub('*', '%')}
             res = AllGems.db[:classes].join(:classes_gems, :class_id => :id).join(:versions, :id => :version_id).filter("#{[].fill('class LIKE ?', 0, ms.size).join(' OR ')}", *ms)
+            puts "Searched class. result: #{res.count}"
             return nil if res.empty?
             res = AllGems.db[:gems].filter(:id => res.map(:gem_id))
+            puts "Searched class. Gem filtered. result: #{res.count}"
             res.empty? ? nil : res
+        end
+
+        # terms:: search terms
+        # Parses the terms to figure out how search should be performed. 
+        # Class searches:
+        #   class:MyClass -> classes => ['MyClass']
+        #   MyClass::Fubar -> classes => ['MyClass::Fubar']
+        # Method searches: 
+        #   method:fubar -> methods => ['fubar']
+        #   MyClass#fubar -> classes => ['MyClass'], methods => ['fubar']
+        def parse_terms(terms)
+            terms = terms.split
+            del = []
+            methods = []
+            classes = []
+            terms.each do |x|
+                [[methods, 'method:'], [classes, 'class:']].each do |y|
+                    if(x.downcase.slice(0, y[1].length) == y[1])
+                        del << x
+                        y[0] << x.slice(y[1].length, x.length)
+                    end
+                end
+                if(x =~ /^([\w:]+)#(\w+)$/)
+                    del << x
+                    classes << $1
+                    methods << $2
+                elsif(x =~ /^([\w:]+)$/)
+                    del << x
+                    classes << x
+                end
+            end
+            terms = (terms - del).map{|x| "%#{x}%"}
+            [terms,methods,classes]
         end
 
     end
