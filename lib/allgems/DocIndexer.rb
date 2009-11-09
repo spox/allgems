@@ -39,7 +39,7 @@ module AllGems
                 search.shift
                 search.shift.children.each do |l|
                     next if l.blank?
-                    parts = l.content.scan(/^(\w+) \(([\w:]+)\)$/)
+                    parts = l.content.scan(/^(\S+) \(([\w:]+)\)$/)
                     AllGems.logger.debug("Hanna scan found: #{parts}")
                     next if parts.empty?
                     results[:methods] << {:method => parts[0][0], :location => parts[0][1]}
@@ -66,7 +66,7 @@ module AllGems
                     uls.shift.children.each do |l|
                         next if l.blank?
                         if(t == :methods)
-                            parts = l.content.scan(/^.*?(\w+).*?([\w:]+)$/)
+                            parts = l.content.scan(/^.*?[:#]+(\S+).*?([\w:]+)$/)
                             AllGems.logger.debug("RDOC scan found: #{parts}")
                             next if parts.empty?
                             results[t] << {:method => parts[0][0], :location => parts[0][1]}
