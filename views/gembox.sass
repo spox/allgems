@@ -113,12 +113,27 @@ a img
       :text-align left
       :font-size 12px
       :font-weight normal
-      :border-bottom 1px solid #CCC
+      :border-bottom 1px "solid" #CCC
     td
       :padding 4px 4px 4px 0px
       :vertical-align top
     tr.summary td
-      :padding-top 0px 
+      :padding-top 0px
+  table#cheatsheet
+    :font-size 14px
+    :width 75%
+    th
+      :color = !grey
+      :text-align left
+      :font-size 12px
+      :font-weight normal
+      :border-bottom 1px "solid" #CCC
+    td
+      :padding 4px
+      :border-bottom-style solid
+      :border-bottm-size 1px
+      :border-bottom-color #CCC
+      :background-color = !light_grey_bg
       
 #gem
   .description
@@ -161,7 +176,7 @@ a img
 #footer
   :margin 20px
   :padding 10px
-  :border-top = 1px solid !light_grey
+  :border-top = 1px "solid" !light_grey
   .copyright
     :font-size 12px
     

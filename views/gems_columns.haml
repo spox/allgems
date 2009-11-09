@@ -1,4 +1,17 @@
 =haml(:gems_header, :layout => false)
+- if @clsmth
+    %center
+        %table#cheatsheet
+            %thead
+                %th Class/Method
+                %th Gem
+                %th Versions
+            %tbody
+                - @clsmth.values.each do |cm|
+                    %tr
+                        %td="#{cm[:class]}##{cm[:method]}"
+                        %td=link_to_gem(cm[:gem])
+                        %td=cm[:versions].map{|x|link_to_gem(cm[:gem], :version => x, :text => x)}.join(', ')
 - unless @gems.empty?
     #gems
         - @gems.each do |gem|
