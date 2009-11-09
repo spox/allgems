@@ -5,17 +5,17 @@ module AllGems
         class << self
             # spec:: Gem::Specification
             # directory:: documentation directory
-            # format:: format documentation is in
+            # fmt:: format documentation is in
             # Builds an index of classes, modules, and methods and stores
             # them for searching
-            def index_gem(spec, directory, format)
-                return if format == :sdoc # not implemented yet
+            def index_gem(spec, directory, fmt)
+                return if fmt == :sdoc # not implemented yet
                 @lock = Mutex.new
                 @list = []
                 return if self.already_processing?(spec)
                 data = nil
-                AllGems.logger.info("Indexing documentation in format: #{format}")
-                case format
+                AllGems.logger.info("Indexing documentation in format: #{fmt}")
+                case fmt.to_sym
                     when :hanna
                         data = self.index_hanna(directory)
                     when :rdoc
@@ -39,7 +39,7 @@ module AllGems
                 search.shift
                 search.shift.children.each do |l|
                     next if l.blank?
-                    parts = l.content.scan(/^(\w+) \((\w+)\)$/)
+                    parts = l.content.scan(/^(\w+) \(([\w:]+)\)$/)
                     AllGems.logger.debug("Hanna scan found: #{parts}")
                     next if parts.empty?
                     results[:methods] << {:method => parts[0][0], :location => parts[0][1]}
@@ -50,6 +50,7 @@ module AllGems
                     next if l.blank? || l.content.slice(0) == ' '
                     results[:modclass] << l.content
                 end
+                results.values.each{|x|x.uniq!}
                 results
             end
             # dir:: path to documentation directory
@@ -65,7 +66,7 @@ module AllGems
                     uls.shift.children.each do |l|
                         next if l.blank?
                         if(t == :methods)
-                            parts = l.content.scan(/^.*?(\w+).*?(\w+)$/)
+                            parts = l.content.scan(/^.*?(\w+).*?([\w:]+)$/)
                             AllGems.logger.debug("RDOC scan found: #{parts}")
                             next if parts.empty?
                             results[t] << {:method => parts[0][0], :location => parts[0][1]}
@@ -75,6 +76,7 @@ module AllGems
                     end
                 end
                 results.values.each{|x|x.uniq!}
+                results
             end
             # dir:: path to documentation directory
             # Discovers Modules, Classes, and methods from an sdoc installation
@@ -86,6 +88,7 @@ module AllGems
             # data:: data returned from one of the index methods
             # Saves data to database
             def save(spec, data)
+                begin
                 vid = AllGems.db[:versions].select(:versions__id.as(:version_id)).join(:gems, :id => :gem_id)
                 vid = vid.filter(:name => spec.name, :version => spec.version.to_s)
                 raise "I don't know what spec I am" if vid.first.nil?
@@ -101,6 +104,9 @@ module AllGems
                     rescue
                         #ignore duplicates#
                     end
+                end
+                rescue StandardError => boom
+                    AllGems.logger.error("SAVE FAIL: #{boom}\n#{boom.backtrace.join("\n")}")
                 end
             end
 
