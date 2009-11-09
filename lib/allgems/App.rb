@@ -34,7 +34,7 @@ module AllGems
             @page = params[:page] ? params[:page].to_i : 1
             if(@search = params[:search])
                 set = do_search(params[:search])
-                if(set.count == 1)
+                if(set.count == 1 && @clsmth.nil?)
                     redirect "/gems/#{set.first[:name]}" # send user on their way if we only get one result
                 end
             end
@@ -86,7 +86,7 @@ module AllGems
         # will search for all gems containing a Timer class, then search that subset using the term "thread". 
         # TODO: This needs to be redone to provide proper searching. Hopefully with FTS support
         def do_search(terms)
-            terms, methods, classes = parse_terms(terms)
+            terms, methods, classes, cls_mth = parse_terms(terms)
             set = nil
             unless(methods.empty?)
                 set = search_methods(methods)
@@ -99,9 +99,16 @@ module AllGems
                     set = res
                 end
             end
+            unless(cls_mth.empty?)
+                res = search_classes_methods(cls_mth)
+                if(set)
+                    set.union(res) unless res.nil?
+                else
+                    set = res
+                end
+            end
             set = AllGems.db[:gems] unless set
             unless(terms.empty?)
-                puts "doing basic search: #{terms}"
                 names = set.filter("#{[].fill('name LIKE ?', 0, terms.size).join(' OR ')}", *terms).order(:name.asc)
                 desc = set.filter("#{[].fill('description LIKE ?', 0, terms.size).join(' OR ')}", *terms).order(:name.asc)
                 summ = set.filter("#{[].fill('summary LIKE ?', 0, terms.size).join(' OR ')}", *terms).order(:name.asc)
@@ -126,10 +133,24 @@ module AllGems
         def search_classes(ms)
             ms.map!{|x|x.gsub('*', '%')}
             res = AllGems.db[:classes].join(:classes_gems, :class_id => :id).join(:versions, :id => :version_id).filter("#{[].fill('class LIKE ?', 0, ms.size).join(' OR ')}", *ms)
-            puts "Searched class. result: #{res.count}"
             return nil if res.empty?
             res = AllGems.db[:gems].filter(:id => res.map(:gem_id))
-            puts "Searched class. Gem filtered. result: #{res.count}"
+            res.empty? ? nil : res
+        end
+
+        # ms:: Array of class/method pairs
+        # Searches for gems containing the Class#method pairs
+        # TODO: join Gems table and grab name to throw in clsmth results for ease in displaying
+        def search_classes_methods(ms)
+            res = AllGems.db[:methods].join(:classes_methods, :method_id => :id).join(:versions, :id => :version_id).join(:gems, :id => :versions__gem_id).join(:classes, :id => :classes_methods__class_id).filter("#{[].fill('(class LIKE ? AND method LIKE ?)', 0, ms.to_a.size).join(' OR ')}", *ms.flatten).select(:class, :method, :gem_id, :name, :version)
+            return nil if res.empty?
+            @clsmth = {}
+            res.each do |row|
+                key = "#{row[:class]}##{row[:method]}-#{row[:gem_id]}"
+                @clsmth[key] = {:class => row[:class], :method => row[:method], :gem => row[:name], :versions => []} unless @clsmth[key]
+                @clsmth[key][:versions] <<  row[:version]
+            end
+            res = AllGems.db[:gems].filter(:id => res.map(:gem_id))
             res.empty? ? nil : res
         end
 
@@ -140,12 +161,14 @@ module AllGems
         #   MyClass::Fubar -> classes => ['MyClass::Fubar']
         # Method searches: 
         #   method:fubar -> methods => ['fubar']
-        #   MyClass#fubar -> classes => ['MyClass'], methods => ['fubar']
+        # Class method searches:
+        #   ClassName#method_name -> classes_methods => [{:class => 'ClassName', :method => 'method_name'}]
         def parse_terms(terms)
             terms = terms.split
             del = []
             methods = []
             classes = []
+            classes_methods = []
             terms.each do |x|
                 [[methods, 'method:'], [classes, 'class:']].each do |y|
                     if(x.downcase.slice(0, y[1].length) == y[1])
@@ -153,17 +176,16 @@ module AllGems
                         y[0] << x.slice(y[1].length, x.length)
                     end
                 end
-                if(x =~ /^([\w:]+)#(\w+)$/)
+                if(x =~ /^([\w:]+\w)[\.#](\w+[\?\!]?)$/)
                     del << x
-                    classes << $1
-                    methods << $2
-                elsif(x =~ /^([\w:]+)$/)
+                    classes_methods << [$1, $2]
+                elsif(x =~ /^([\w:]+:\w+)$/)
                     del << x
                     classes << x
                 end
             end
             terms = (terms - del).map{|x| "%#{x}%"}
-            [terms,methods,classes]
+            [terms,methods,classes,classes_methods]
         end
 
     end
