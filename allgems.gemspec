@@ -17,8 +17,9 @@ spec = Gem::Specification.new do |s|
     s.add_dependency 'ActionPool'
     s.add_dependency 'ActionTimer'
     s.add_dependency 'haml'
-    s.add_dependency 'rdoc'
+    s.add_dependency 'rdoc', '=2.3.0'
+    s.add_dependency 'rdoc', '>=2.4.2'
     s.add_dependency 'sdoc'
-    s.add_dependency 'hanna'
+    s.add_dependency 'hanna', '=0.1.12'
     s.add_dependency 'nokogiri'
 end
