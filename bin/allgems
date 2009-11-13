@@ -11,12 +11,14 @@ usage: allgems [opts]
 --notall -n:\t\t\t\t\tDon't fetch all versions
 --daemonize -D:\t\t\t\t\tRun as a daemon
 --datadir -d /path:\t\t\t\tData directory for documents/gems (defaults to /tmp/allgems)
---dbfile -b /path/file.db\t\t\tPath to sqlite file (defaults datadir/allgems.db)
+--dbfile -b /path/file.db\t\t\tPath to sqlite file (defaults $datadir/allgems.db)
 --formatter -f rdoc[,hanna,sdoc]:\t\tRDoc formatter (defaults to rdoc (which is darkfish))
 --interval -i \\d+:\t\t\t\tSeconds to wait before updating documents (defaults to 1 hour)
 --runners -r \\d+:\t\t\t\tNumber of threads to use (defaults to 10)
 --log -L [/path/file]:\t\t\t\tTurn logging on (no argument defaults to STDOUT)
 --verbosity -V [(debug|info|warn|fatal)]:\tLogging level (no argument defaults to info)
+--server -s:\t\t\t\t\tTurns on server interaction
+--host -H host.name:\t\t\t\tSet the domain name for the associated site
 --help -h:\t\t\t\t\tDisplay this help text"
 end
 
@@ -28,6 +30,7 @@ require 'rbconfig'
 ON_WINDOWS = Config::CONFIG['host_os'] =~ /mswin|mingw/
 
 # set default values
+# TODO: put this into a "config" hash. Make it savable and loadable
 config_output = false
 daemonize = false
 datadir = '/tmp/allgems'
@@ -38,6 +41,8 @@ dbfile = nil
 logto = nil
 level = Logger::INFO
 all = true
+server = false
+host = nil
 
 # figure out what we are doing
 opts = GetoptLong.new(
@@ -52,49 +57,56 @@ opts = GetoptLong.new(
     ['--verbosity', '-V', GetoptLong::OPTIONAL_ARGUMENT],
     ['--help', '-h', GetoptLong::NO_ARGUMENT],
     ['--config', '-c', GetoptLong::NO_ARGUMENT],
-    ['--notall', '-n', GetoptLong::NO_ARGUMENT]
+    ['--notall', '-n', GetoptLong::NO_ARGUMENT],
+    ['--server', '-s', GetoptLong::NO_ARGUMENT],
+    ['--host', '-H', GetoptLong::ARGUMENT_REQUIRED]
 )
 
 opts.each do |opt, arg|
     case opt
-        when '--daemonize'
-            daemonize = true
-        when '--datadir'
-            datadir = arg
-        when '--formatter'
-            formatter = arg
-        when '--interval'
-            interval = arg.to_i
-        when '--runners'
-            runners = arg.to_i
-        when '--dbfile'
-            dbfile = arg
-        when '--version'
-            puts "VERSION INFO"
-        when '--log'
-            logto = arg.empty? ? $stdout: arg
-        when '--verbosity'
-            case arg
-                when 'debug'
-                    level = Logger::DEBUG
-                when 'info'
-                    level = Logger::INFO
-                when 'warn'
-                    level = Logger::WARN
-                when 'error'
-                    level = Logger::ERROR
-                when 'fatal'
-                    level = Logger::FATAL
-                else
-                    level = Logger::INFO
-            end
-        when '--notall'
-            all = false
-        when '--config'
-            config_output = true
-        when '--help'
-            display_help
-            exit SUCCESS
+    when '--server'
+        require 'allgems/CommandReceiver'
+        server = true
+    when '--host'
+        host = arg
+    when '--daemonize'
+        daemonize = true
+    when '--datadir'
+        datadir = arg
+    when '--formatter'
+        formatter = arg
+    when '--interval'
+        interval = arg.to_i
+    when '--runners'
+        runners = arg.to_i
+    when '--dbfile'
+        dbfile = arg
+    when '--version'
+        puts "VERSION INFO"
+    when '--log'
+        logto = arg.empty? ? $stdout: arg
+    when '--verbosity'
+        case arg
+        when 'debug'
+            level = Logger::DEBUG
+        when 'info'
+            level = Logger::INFO
+        when 'warn'
+            level = Logger::WARN
+        when 'error'
+            level = Logger::ERROR
+        when 'fatal'
+            level = Logger::FATAL
+        else
+            level = Logger::INFO
+        end
+    when '--notall'
+        all = false
+    when '--config'
+        config_output = true
+    when '--help'
+        display_help
+        exit SUCCESS
     end
 end
 
@@ -144,6 +156,7 @@ AllGems.data_directory = datadir
 AllGems.doc_format = formatter unless formatter.nil?
 AllGems.logger = Logger.new(logto, level)
 AllGems.allgems = all
+AllGems.domain_name = host if host
 
 # are we just giving out configuration?
 if(config_output)
@@ -151,8 +164,8 @@ puts <<-EOC
 Apache virtual host configuration:
 
 <VirtualHost *:80>
-        # Uncomment the next line and add your servers name if wanted
-        # ServerName YourServerNameHere.com
+        # Uncomment the next line if wanted
+        # ServerName #{AllGems.domain_name}
 
         SetEnv DATA_DIR #{AllGems.data_directory}
         SetEnv DATA_DB #{dbfile}
@@ -210,6 +223,11 @@ require 'allgems/Runner'
 runner = AllGems::Runner.new(:db_path => dbfile, :runners => runners, :interval => interval)
 trap('SIGINT'){runner.stop(true)}
 trap('SIGHUP'){runner.stop; runner.do_sync} unless ON_WINDOWS
+if(server)
+    server = AllGems::CommandReceiver.new(runner)
+    server.start
+end
 runner.do_sync
-runner.stop unless daemonize
+runner.stop
+server.stop if server
 exit SUCCESS
