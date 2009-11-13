@@ -1,7 +1,7 @@
 require 'logger'
 module AllGems
     class << self
-        attr_accessor :data_directory, :logger, :db, :allgems, :pool, :timer
+        attr_accessor :data_directory, :logger, :db, :allgems, :pool, :timer, :listen_port, :domain_name
         def defaulterize
             @data_directory = nil
             @doc_format = ['rdoc']
@@ -13,6 +13,9 @@ module AllGems
             @refresh = Time.now.to_i + 3600
             @pool = nil
             @timer = nil
+            @listen_port = 4000
+            @start_time = Time.now.to_i
+            @domain_name = 'localhost'
         end
         # db: Sequel::Database
         # Run any migrations needed
@@ -69,14 +72,19 @@ module AllGems
         end
         # runners:: Number of threads
         # Create a global use pool
-        def initialize_pool(runners=10)
-            @pool = ActionPool::Pool.new(:max_threads => runners) if @pool.nil?
+        def initialize_pool(args=nil)
+            args = {:a_to => 60*5} unless args
+            @pool = ActionPool::Pool.new(args) if @pool.nil?
         end
         # pool:: ActionPool to use. (Uses global pool if available)
         # Create a global use timer
         def initialize_timer(pool=nil)
             pool = @pool unless pool
             @timer = ActionTimer::Timer.new(:pool => pool)
+        end
+        # Seconds program has been running
+        def uptime
+            Time.now.to_i - @start_time
         end
     end
 end
