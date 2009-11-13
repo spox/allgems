@@ -43,6 +43,15 @@ Class.new(Sequel::Migration) do
             foreign_key :version_id, :table => :versions
             primary_key [:class_id, :version_id]
         end
+        AllGems.db.create_table(:lids) do
+            String :uid, :null => false, :unique => true
+            primary_key :id, :null => false
+        end
+        AllGems.db.create_table(:gems_lids) do
+            foreign_key :lids_id, :null => false, :table => :lids
+            foreign_key :version_id, :null => false, :table => :versions
+            primary_key [:list_id, :version_id]
+        end
     end
     def down
         AllGems.db.drop_table(:specs)
