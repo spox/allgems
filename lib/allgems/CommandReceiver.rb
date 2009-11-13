@@ -130,7 +130,7 @@ module AllGems
         # Returns a unique ID that is not currently in use
         def uid(length = 50)
             id = rand(36**length).to_s(36)
-            if(AllGems.db[:list_ids].filter(:uuid => id).count > 0)
+            if(AllGems.db[:lids].filter(:uid => id).count > 0)
                 id = uuid(length)
             end
             id
