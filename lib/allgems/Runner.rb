@@ -12,7 +12,7 @@ module AllGems
             raise ArgumentError.new('Expecting path to database') unless args[:db_path]
             @db = Sequel.connect("sqlite://#{args[:db_path]}")
             AllGems.initialize_db(@db)
-            @pool = ActionPool::Pool.new(:max_threads => args[:runners] ? args[:runners] : 10)
+            AllGems.initialize_pool(args[:runners] ? args[:runners] : 10)
             GemWorker.setup
             @index = IndexBuilder.new(:database => @db)
             @interval = args[:interval] ? args[:interval] : nil
@@ -23,9 +23,9 @@ module AllGems
         
         def do_sync
             if(@interval)
-                @timer = ActionTimer::Timer.new(:pool => @pool)
+                AllGems.initialize_timer
                 sync
-                @timer.add(@interval){ sync }
+                AllGems.timer.add(@interval){ sync }
             else
                 sync
             end
@@ -35,7 +35,7 @@ module AllGems
         def sync
             @self = Thread.current
             Gem.refresh
-            @pool.add_jobs(@index.build_array(@index.local_array).map{|x| lambda{GemWorker.process({:database => @db}.merge(x))}})
+            AllGems.pool.add_jobs(@index.build_array(@index.local_array).map{|x| lambda{GemWorker.process({:database => @db}.merge(x))}})
             begin
                 @pool << lambda{@self.raise Wakeup.new}
                 sleep
@@ -52,7 +52,7 @@ module AllGems
             @timer.clear if @timer
             @stop = true
             @self.raise Wakeup unless Thread.current == @self
-            @pool.shutdown(now)
+            AllGems.pool.shutdown(now)
             GemWorker.pool.shutdown(now)
         end
 

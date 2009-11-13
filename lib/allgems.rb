@@ -1,7 +1,7 @@
 require 'logger'
 module AllGems
     class << self
-        attr_accessor :data_directory, :logger, :db, :allgems
+        attr_accessor :data_directory, :logger, :db, :allgems, :pool, :timer
         def defaulterize
             @data_directory = nil
             @doc_format = ['rdoc']
@@ -11,6 +11,8 @@ module AllGems
             @ti = nil
             @allgems = true
             @refresh = Time.now.to_i + 3600
+            @pool = nil
+            @timer = nil
         end
         # db: Sequel::Database
         # Run any migrations needed
@@ -64,6 +66,17 @@ module AllGems
         # Path to hanna hack
         def hanna_hack
             File.expand_path("#{__FILE__}/../allgems/hanna_hack.rb")
+        end
+        # runners:: Number of threads
+        # Create a global use pool
+        def initialize_pool(runners=10)
+            @pool = ActionPool::Pool.new(:max_threads => runners) if @pool.nil?
+        end
+        # pool:: ActionPool to use. (Uses global pool if available)
+        # Create a global use timer
+        def initialize_timer(pool=nil)
+            pool = @pool unless pool
+            @timer = ActionTimer::Timer.new(:pool => pool)
         end
     end
 end
