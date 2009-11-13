@@ -6,12 +6,11 @@ require 'allgems/DocIndexer'
 module AllGems
     class GemWorker
         class << self
-            attr_reader :pool
             # Get the worker ready to go
             def setup
                 @glock = Mutex.new
                 @slock = Mutex.new
-                @pool = ActionPool::Pool.new(:max_threads => 10, :a_to => 60*5)
+                AllGems.initialize_pool
             end
             # :name:: name of the gem
             # :version:: version of the gem
@@ -143,7 +142,7 @@ module AllGems
                         FileUtils.chmod_R(0755, "#{dir}/doc/#{f}") # fix any bad permissions
                         DocIndexer.index_gem(spec, "#{dir}/doc/#{f}", f)
                     end
-                    @pool << [action, [spec, dir.dup, command.dup, args.join(' '), f]]
+                    AllGems.pool << [action, [spec, dir.dup, command.dup, args.join(' '), f]]
                 end
             end
 
