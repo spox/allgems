@@ -30,7 +30,7 @@ module AllGems
         get '/gems/?' do
             show_layout = params[:layout] != 'false'
             @show_as = params[:as] && params[:as] == 'table' ? 'table' : 'columns'
-            set = AllGems.db[:gems].order(:name.asc)
+            set = gems_dataset.order(:name.asc)
             @page = params[:page] ? params[:page].to_i : 1
             if(@search = params[:search])
                 set = do_search(params[:search])
@@ -51,22 +51,51 @@ module AllGems
             haml :gem
         end
 
-        get %r{/doc/(.+)} do
-            parts = params[:captures][0].split('/')
-            @gem_name = parts[0]
-            @gem_version = parts[1]
-            @path = "/docs/#{params[:captures][0]}"
-            haml :doc, :layout => false
+        get %r{/lid/(\w+)$} do
+            lid = params[:captures][1]
+            if(AllGems.db[:lids].filter(:uid => lid).count > 0)
+                set_cookie("lid", lid)
+            else
+                # TODO: report error
+            end
+            redirect '/'
         end
 
-        get %r{/load/([^/]+)/(.+)/?} do
-            @gem_name = params[:captures][0]
-            @gem_version = params[:captures][1]
-            haml :load, :layout => false
-        end
+# This stuff is for if I can ever get frames to work properly with sdoc (doubtful)
+#         get %r{/doc/(.+)} do
+#             parts = params[:captures][0].split('/')
+#             @gem_name = parts[0]
+#             @gem_version = parts[1]
+#             @path = "/docs/#{params[:captures][0]}"
+#             haml :doc, :layout => false
+#         end
+# 
+#         get %r{/load/([^/]+)/(.+)/?} do
+#             @gem_name = params[:captures][0]
+#             @gem_version = params[:captures][1]
+#             haml :load, :layout => false
+#         end
 
         private
 
+        def gems_dataset
+            lid = request.cookies['lid']
+            if(lid)
+                AllGems[:versions].join(:gem, :id => :gem_id).join(:gems_lids, :version_id => :versions__id).join(:lids, :id => :gems_lids__lids_id).select(:gems__name.as(:name), :gems__id.as(:id)).distinct
+            else
+                AllGems[:gems]
+            end
+        end
+
+        def versions_dataset
+            lid = request.cookies['lid']
+            if(lid)
+                AllGems[:versions].join(:gems_lids, :version_id => :versions__id).join(:lids, :id => :gems_lids__lids_id).select(:versions__id.as(:id), :versions__version.as(:versions), :versions__release.as(:release), :versions__gem_id.as(:gem_id))
+            else
+                AllGems[:versions]
+            end            
+        end
+        
         def load_gem_spec(gem, version=nil)
             version ||= get_latest(gem)
             raise 'failed gem' unless version
@@ -76,7 +105,7 @@ module AllGems
         # gem:: name of the gem
         # Returns the latest version of the given gem or nil
         def get_latest(gem)
-            AllGems.db[:versions].join(:gems, :id => :gem_id).filter(:name => gem).order(:version.desc).limit(1).select(:version).map(:version)[0]
+            versions_dataset.join(:gems, :id => :gem_id).filter(:name => gem).order(:version.desc).limit(1).select(:version).map(:version)[0]
         end
 
         # terms:: terms to search on
@@ -107,7 +136,7 @@ module AllGems
                     set = res
                 end
             end
-            set = AllGems.db[:gems] unless set
+            set = gems_dataset unless set
             unless(terms.empty?)
                 names = set.filter("#{[].fill('name LIKE ?', 0, terms.size).join(' OR ')}", *terms).order(:name.asc)
                 desc = set.filter("#{[].fill('description LIKE ?', 0, terms.size).join(' OR ')}", *terms).order(:name.asc)
@@ -124,7 +153,7 @@ module AllGems
             ms.map!{|x|x.gsub('*', '%')}
             res = AllGems.db[:methods].join(:classes_methods, :method_id => :id).join(:versions, :id => :version_id).filter("#{[].fill('method LIKE ?', 0, ms.size).join(' OR ')}", *ms)
             return nil if res.empty?
-            res = AllGems.db[:gems].filter(:id => res.map(:gem_id))
+            res = gems_dataset.filter(:id => res.map(:gem_id))
             res.empty? ? nil : res
         end
 
@@ -134,7 +163,7 @@ module AllGems
             ms.map!{|x|x.gsub('*', '%')}
             res = AllGems.db[:classes].join(:classes_gems, :class_id => :id).join(:versions, :id => :version_id).filter("#{[].fill('class LIKE ?', 0, ms.size).join(' OR ')}", *ms)
             return nil if res.empty?
-            res = AllGems.db[:gems].filter(:id => res.map(:gem_id))
+            res = gems_dataset.filter(:id => res.map(:gem_id))
             res.empty? ? nil : res
         end
 
@@ -150,7 +179,7 @@ module AllGems
                 @clsmth[key] = {:class => row[:class], :method => row[:method], :gem => row[:name], :versions => []} unless @clsmth[key]
                 @clsmth[key][:versions] <<  row[:version]
             end
-            res = AllGems.db[:gems].filter(:id => res.map(:gem_id))
+            res = gems_dataset.filter(:id => res.map(:gem_id))
             res.empty? ? nil : res
         end
 
