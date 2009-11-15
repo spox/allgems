@@ -11,6 +11,10 @@
         .contained
           %img{:src => '/images/rubygems-125x125t.png', :alt => 'Rubygems logo', :id => 'logo'}
           %h1=link_to('AllGems', '/')
+          - unless request.cookies['lid'].nil?
+            #dislid
+              List filtered.
+              =link_to('Disable filter', '/unlid/')
       #nav
         .contained
           .search

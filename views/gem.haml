@@ -30,6 +30,7 @@
       =ts(@gem.date)
   %h3.toggler Dependencies
   #dependencies.toggle_area
+    ="none" if @gem.dependencies.size == 0
     -@gem.dependencies.each do |dependency|
       .gem
         =link_to(dependency.name, "/gems/#{dependency.name}")
@@ -42,4 +43,9 @@
           %tr
             %td=link_to(info[:version], "/gems/#{@gem.name}/#{info[:version]}")
             %td=ts(info[:release])
-        
+  %h3.toggler LID Generation
+  #lid
+    =link_to('Click here', "/glid/#{@gem.name}/#{@gem.version}")
+    to generate a customized
+    =link_to('LID', "/about#lid")
+    for this gem.
