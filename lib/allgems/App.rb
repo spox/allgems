@@ -47,17 +47,37 @@ module AllGems
             gem = params[:captures][0]
             version = params[:captures].size > 1 ? params[:captures][1] : nil
             @gem = load_gem_spec(gem, version)
-            @versions = AllGems.db[:versions].join(:gems, :id => :gem_id).filter(:name => gem).order(:version.desc).select(:version, :release)
+            @versions = versions_dataset.join(:gems, :id => :versions__gem_id).filter(:name => gem).order(:version.desc).select(:version, :release)
             haml :gem
         end
 
         get %r{/lid/(\w+)$} do
-            lid = params[:captures][1]
+            lid = params[:captures][0]
             if(AllGems.db[:lids].filter(:uid => lid).count > 0)
-                set_cookie("lid", lid)
+                response.set_cookie('lid', :value => lid, :path => '/', :expires => Time.now + 99999)
             else
                 # TODO: report error
             end
+            redirect '/'
+        end
+            
+        get %r{/glid/([\w\-\_]+)/([\d\.]+)/?} do
+            name = params[:captures][0]
+            version = params[:captures][1]
+            spec = load_gem_spec(name, version)
+            deps = spec.dependencies.map do |dep|
+                spec = Gem::SpecFetcher.fetcher.fetch dep, true
+                spec = spec[0][0]
+                [spec.name, spec.version.version]
+            end
+            deps << [name, version]
+            lid = AllGems.uid
+            AllGems.link_id(lid, deps)
+            redirect "/lid/#{lid}" # change this to display URL with clickable link
+        end
+
+        get %r{/unlid/?} do
+            response.delete_cookie('lid', :path => '/')
             redirect '/'
         end
 
@@ -78,24 +98,27 @@ module AllGems
 
         private
 
+        # Returns the gems table dataset filtered if the lid is set
         def gems_dataset
             lid = request.cookies['lid']
             if(lid)
-                AllGems[:versions].join(:gem, :id => :gem_id).join(:gems_lids, :version_id => :versions__id).join(:lids, :id => :gems_lids__lids_id).select(:gems__name.as(:name), :gems__id.as(:id)).distinct
+                AllGems.db[:versions].join(:gems, :id => :gem_id).join(:gems_lids, :version_id => :versions__id).join(:lids, :id => :gems_lids__lids_id).select(:gems__name.as(:name), :gems__id.as(:id)).distinct
             else
-                AllGems[:gems]
+                AllGems.db[:gems]
             end
         end
 
+        # Returns the versions table dataset filtered if the lid is set
         def versions_dataset
             lid = request.cookies['lid']
             if(lid)
-                AllGems[:versions].join(:gems_lids, :version_id => :versions__id).join(:lids, :id => :gems_lids__lids_id).select(:versions__id.as(:id), :versions__version.as(:versions), :versions__release.as(:release), :versions__gem_id.as(:gem_id))
+                AllGems.db[:versions].join(:gems_lids, :version_id => :versions__id).join(:lids, :id => :gems_lids__lids_id).select(:versions__id.as(:id), :versions__version.as(:version), :versions__release.as(:release), :versions__gem_id.as(:gem_id)).distinct
             else
-                AllGems[:versions]
-            end            
+                AllGems.db[:versions]
+            end
         end
-        
+
+        # Finds a gem specifcation
         def load_gem_spec(gem, version=nil)
             version ||= get_latest(gem)
             raise 'failed gem' unless version
