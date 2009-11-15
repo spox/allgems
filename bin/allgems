@@ -19,6 +19,8 @@ usage: allgems [opts]
 --verbosity -V [(debug|info|warn|fatal)]:\tLogging level (no argument defaults to info)
 --server -s:\t\t\t\t\tTurns on server interaction
 --host -H host.name:\t\t\t\tSet the domain name for the associated site
+--port -p \\d+:\t\t\t\t\tSet port for the associated site
+--sync -S\t\t\t\t\tSync local gems to AllGems site (generally used with -H and -p)
 --help -h:\t\t\t\t\tDisplay this help text"
 end
 
@@ -30,19 +32,22 @@ require 'rbconfig'
 ON_WINDOWS = Config::CONFIG['host_os'] =~ /mswin|mingw/
 
 # set default values
-# TODO: put this into a "config" hash. Make it savable and loadable
-config_output = false
-daemonize = false
-datadir = '/tmp/allgems'
-formatter = nil
-interval = 3600 # default to hourly checks
-runners = 10 # default to 10 threads
-dbfile = nil
-logto = nil
-level = Logger::INFO
-all = true
-server = false
-host = nil
+config = {
+    :config_output => false,
+    :daemonize => false,
+    :datadir => '/tmp/allgems',
+    :formatter => nil,
+    :interval => 3600,
+    :runners => 10,
+    :dbfile => nil,
+    :logto => nil,
+    :level => Logger::INFO,
+    :all => true,
+    :server => false,
+    :host => nil,
+    :port => nil,
+    :sync => false
+}
 
 # figure out what we are doing
 opts = GetoptLong.new(
@@ -59,107 +64,110 @@ opts = GetoptLong.new(
     ['--config', '-c', GetoptLong::NO_ARGUMENT],
     ['--notall', '-n', GetoptLong::NO_ARGUMENT],
     ['--server', '-s', GetoptLong::NO_ARGUMENT],
-    ['--host', '-H', GetoptLong::ARGUMENT_REQUIRED]
+    ['--host', '-H', GetoptLong::REQUIRED_ARGUMENT],
+    ['--port', '-p', GetoptLong::REQUIRED_ARGUMENT],
+    ['--sync', '-S', GetoptLong::NO_ARGUMENT]
 )
 
 opts.each do |opt, arg|
     case opt
     when '--server'
         require 'allgems/CommandReceiver'
-        server = true
+        config[:server] = true
     when '--host'
-        host = arg
+        config[:host] = arg
     when '--daemonize'
-        daemonize = true
+        config[:daemonize] = true
     when '--datadir'
-        datadir = arg
+        config[:datadir] = arg
     when '--formatter'
-        formatter = arg
+        config[:formatter] = arg
     when '--interval'
-        interval = arg.to_i
+        config[:interval] = arg.to_i
     when '--runners'
-        runners = arg.to_i
+        config[:runners] = arg.to_i
     when '--dbfile'
-        dbfile = arg
+        config[:dbfile] = arg
     when '--version'
         puts "VERSION INFO"
     when '--log'
-        logto = arg.empty? ? $stdout: arg
+        config[:logto] = arg.empty? ? $stdout: arg
     when '--verbosity'
         case arg
         when 'debug'
-            level = Logger::DEBUG
+            config[:level] = Logger::DEBUG
         when 'info'
-            level = Logger::INFO
+            config[:level] = Logger::INFO
         when 'warn'
-            level = Logger::WARN
+            config[:level] = Logger::WARN
         when 'error'
-            level = Logger::ERROR
+            config[:level] = Logger::ERROR
         when 'fatal'
-            level = Logger::FATAL
+            config[:level] = Logger::FATAL
         else
-            level = Logger::INFO
+            config[:level] = Logger::INFO
         end
     when '--notall'
-        all = false
+        config[:all] = false
     when '--config'
-        config_output = true
+        config[:config_output] = true
     when '--help'
         display_help
         exit SUCCESS
     end
 end
 
-dbfile = "#{datadir}/allgems.db" if dbfile.nil?
-interval = nil unless daemonize
+config[:dbfile] = "#{config[:datadir]}/allgems.db" if config[:dbfile].nil?
+config[:interval] = nil unless config[:daemonize]
 
 # yell at user for bad values
-if(interval && interval <= 0)
+if(config[:interval] && config[:interval] <= 0)
     $stderr.puts "ERROR: interval value must be greater than 1"
     exit CONFIGURATION_ERROR
 end
-if(runners <= 0)
+if(config[:runners] <= 0)
     $stderr.puts "ERROR: runners value must be greater than 1"
     exit CONFIGURATION_ERROR
 end
-unless(File.writable?(datadir))
+unless(File.writable?(config[:datadir]))
     created = false
     #check if we can/should create it
-    unless(File.exists?(datadir))
+    unless(File.exists?(config[:datadir]))
         begin
-            FileUtils.mkdir_p datadir
+            FileUtils.mkdir_p config[:datadir]
             created = true
         rescue SystemCallError
             created = false
         end
     end
-    datadir = File.expand_path(datadir)
+    config[:datadir] = File.expand_path(config[:datadir])
     unless(created)
-        $stderr.puts "ERROR: data directory is not writable. (#{datadir})"
+        $stderr.puts "ERROR: data directory is not writable. (#{config[:datadir]})"
         exit CONFIGURATION_ERROR
     end
 end
-unless(File.exists?(dbfile))
+unless(File.exists?(config[:dbfile]))
     begin
-        FileUtils.touch dbfile
+        FileUtils.touch config[:dbfile]
     rescue SystemCallError
     end
 end
-unless(File.writable?(dbfile))
-    $stderr.puts "ERROR: database file is not writable. (#{dbfile})"
+unless(File.writable?(config[:dbfile]))
+    $stderr.puts "ERROR: database file is not writable. (#{config[:dbfile]})"
     exit CONFIGURATION_ERROR
 end
 
 # set everything
 AllGems.defaulterize
-AllGems.data_directory = datadir
-AllGems.doc_format = formatter unless formatter.nil?
-AllGems.logger = Logger.new(logto, level)
-AllGems.allgems = all
-AllGems.domain_name = host if host
+AllGems.data_directory = config[:datadir]
+AllGems.doc_format = config[:formatter] unless config[:formatter].nil?
+AllGems.logger = Logger.new(config[:logto], config[:level])
+AllGems.allgems = config[:all]
+AllGems.domain_name = config[:host] if config[:host]
+AllGems.listen_port = config[:port] if config[:port]
 
 # are we just giving out configuration?
-if(config_output)
+if(config[:config_output])
 puts <<-EOC
 Apache virtual host configuration:
 
@@ -201,7 +209,7 @@ exit SUCCESS
 end
 
 # are we supposed to be a daemon?
-if(daemonize)
+if(config[:daemonize])
     if(RUBY_VERSION > '1.9.0')
         Process.daemon
     else
@@ -220,10 +228,11 @@ Process.setpriority(Process::PRIO_PROCESS, 0, 19) unless ON_WINDOWS
 # finally, lets get going
 
 require 'allgems/Runner'
-runner = AllGems::Runner.new(:db_path => dbfile, :runners => runners, :interval => interval)
+runner = AllGems::Runner.new(:db_path => config[:dbfile], :runners => config[:runners], :interval => config[:interval])
 trap('SIGINT'){runner.stop(true)}
 trap('SIGHUP'){runner.stop; runner.do_sync} unless ON_WINDOWS
-if(server)
+server = nil
+if(config[:server])
     server = AllGems::CommandReceiver.new(runner)
     server.start
 end
