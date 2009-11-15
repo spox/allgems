@@ -86,5 +86,33 @@ module AllGems
         def uptime
             Time.now.to_i - @start_time
         end
+        # id:: uid to be used
+        # gems:: Array of gem names and versions [[name,version],[name,version]]
+        # Links the given gem names and versions to the ID given
+        def link_id(id, gems)
+            gems.each do |info|
+                vid = AllGems.db[:versions].join(:gems, :id => :gem_id).filter(:name => info[0], :version => info[1]).select(:versions__id.as(:vid)).first
+                next if vid.nil?
+                vid = vid[:vid]
+                lid = AllGems.db[:lids].filter(:uid => id).first[:id]
+                begin
+                    AllGems.db[:gems_lids] << {:version_id => vid, :lids_id => lid}
+                rescue
+                    #ignore duplicates
+                end
+            end
+        end
+        
+        # length:: max length of ID (defaults to 50)
+        # Returns a unique ID that is not currently in use
+        # TODO: synchronzie access and use transactions to prevent duplicates
+        def uid(length = 50)
+            id = rand(36**length).to_s(36)
+            if(AllGems.db[:lids].filter(:uid => id).count > 0)
+                id = uuid(length)
+            end
+            AllGems.db[:lids] << {:uid => id}
+            id
+        end
     end
 end
