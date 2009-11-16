@@ -25,7 +25,6 @@ module AllGems
                 gempath = self.fetch(spec, uri, "#{basedir}/#{spec.full_name}.gem")
                 self.unpack(gempath, basedir)
                 self.generate_documentation(spec, basedir)
-                self.save_data(spec, args[:database])
             end
 
             # name:: name of gem
@@ -46,6 +45,7 @@ module AllGems
             # on the local machine
             def fetch(spec, uri, save_path)
                 AllGems.logger.info "Fetching gem from: #{uri}/gems/#{spec.full_name}.gem"
+                return if File.exists?(save_path) # don't fetch if gem already exists
                 FileUtils.touch(save_path)
                 begin
                     remote_path = "#{uri}/gems/#{spec.full_name}.gem"
@@ -74,25 +74,17 @@ module AllGems
                 end
             end
 
-            # gempath:: path to gem file
-            # newname:: path to move gem file to
-            # Moves the gem to the given location
-            def save(gempath, newpath)
-                AllGems.logger.info "Moving #{gempath} to #{newpath}"
-                FileUtils.mv gempath, newpath
-                newpath
-            end
-
             # path:: path to the gem file
             # basedir:: directory to unpack in
             # depth:: number of times called
             # Unpacks the gem into the basedir under the 'unpack' directory
             def unpack(path, basedir, depth=0)
                 AllGems.logger.info "Unpacking gem: #{path}"
+                return if File.exists?("#{basedir}/unpack") # return if gem has been unpacked
                 begin
                     Gem::Installer.new(path, :unpack => true).unpack "#{basedir}/unpack"
                     FileUtils.chmod_R(0755, "#{basedir}/unpack") # fix any bad permissions
-                    FileUtils.rm(path)
+#                    FileUtils.rm(path) # maybe make this optional
                 rescue
                     if(File.size(path) < 1 || depth > 10)
                         raise IOError.new("Failed to unpack gem: #{path}") unless self.direct_unpack(path, basedir)
@@ -134,13 +126,17 @@ module AllGems
                         else
                             next # if we don't know what to do with it, skip it
                     end
-                    action = lambda do |spec, dir, command, args, f|
+                    action = lambda do |spec, dir, command, args, format_type|
                         FileUtils.rm_r("#{dir}/doc/#{f}", :force => true) # make sure we are clean before we get dirty
                         result = self.run_command("#{command} #{args}")
+                        AllGem.db.transaction do
+                            vid = AllGems.db[:versions].join(:gems, :id => :gem_id).filter(:name => spec.name, :version => spec.version.version).select(:versions__id.as(:vid)).first[:vid]
+                            AllGems.db[:docs_versions] << {:version_id => vid, :doc_id => AllGems.doc_hash[f]}
+                        end
                         raise DocError.new(spec.name, spec.version) unless result
                         AllGems.logger.info "Completed documentation for #{spec.full_name}"
                         FileUtils.chmod_R(0755, "#{dir}/doc/#{f}") # fix any bad permissions
-                        DocIndexer.index_gem(spec, "#{dir}/doc/#{f}", f)
+                        DocIndexer.index_gem(spec, "#{dir}/doc/#{f}", format_type)
                     end
                     AllGems.pool << [action, [spec, dir.dup, command.dup, args.join(' '), f]]
                 end
@@ -173,15 +169,17 @@ module AllGems
 
             # spec:: Gem::Specification
             # Save data to the database about this gem
-            def save_data(spec, db)
+            def save_data(spec)
                 AllGems.logger.info "Saving meta data for #{spec.full_name}"
-                @slock.synchronize do
-                    gid = db[:gems].filter(:name => spec.name).first
-                    gid = gid.nil? ? db[:gems].insert(:name => spec.name) : gid[:id]
-                    vid = db[:versions] << {:version => spec.version.version, :gem_id => gid, :release => spec.date}
-                    db[:specs] << {:version_id => vid, :spec => [Marshal.dump(spec)].pack('m')}
-                    db[:gems].filter(:id => gid).update(:summary => spec.summary)
-                    db[:gems].filter(:id => gid).update(:description => spec.description)
+                AllGems.transaction do
+                    gid = AllGems.db[:gems].filter(:name => spec.name).first
+                    gid = gid.nil? ? AllGems.db[:gems].insert(:name => spec.name) : gid[:id]
+                    if(AllGems.db[:versions].filter(:gem_id => gid, :version => spec.version.version).count == 0)
+                        vid = AllGems.db[:versions] << {:version => spec.version.version, :gem_id => gid, :release => spec.date}
+                        AllGems.db[:specs] << {:version_id => vid, :spec => [Marshal.dump(spec)].pack('m')}
+                        AllGems.db[:gems].filter(:id => gid).update(:summary => spec.summary)
+                        AllGems.db[:gems].filter(:id => gid).update(:description => spec.description)
+                    end
                 end
                 AllGems.logger.info "Meta data saving complete for #{spec.full_name}"
                 true
