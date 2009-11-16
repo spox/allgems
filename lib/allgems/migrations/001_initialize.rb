@@ -53,7 +53,7 @@ Class.new(Sequel::Migration) do
             primary_key [:lids_id, :version_id]
         end
         AllGems.db.create_table(:docs) do
-            String :name, :null => false
+            String :name, :null => false, :unique => true
             primary_key :id, :null => false
         end
         AllGems.db.create_table(:docs_versions) do
