@@ -2,6 +2,7 @@ require 'logger'
 module AllGems
     class << self
         attr_accessor :data_directory, :logger, :db, :allgems, :pool, :timer, :listen_port, :domain_name
+        attr_reader :doc_hash
         def defaulterize
             @data_directory = nil
             @doc_format = ['rdoc']
@@ -16,6 +17,8 @@ module AllGems
             @listen_port = 4000
             @start_time = Time.now.to_i
             @domain_name = 'localhost'
+            @doc_hash = {}
+            @valid_docs = [:hanna, :rdoc, :sdoc]
         end
         # db: Sequel::Database
         # Run any migrations needed
@@ -24,6 +27,7 @@ module AllGems
             self.db = db
             require 'sequel/extensions/migration'
             Sequel::Migrator.apply(db, "#{File.expand_path(__FILE__).gsub(/\/[^\/]+$/, '')}/allgems/migrations")
+            save_default_docs
         end
         # Format for documentation
         def doc_format
@@ -35,7 +39,7 @@ module AllGems
             @doc_format = []
             f.split(',').each do |type|
                 type = type.to_sym
-                raise ArgumentError.new("Valid types: hanna, sdoc, rdoc") unless [:hanna,:sdoc,:rdoc].include?(type)
+                raise ArgumentError.new("Valid types: hanna, sdoc, rdoc") unless @valid_docs.include?(type)
                 @doc_format << type
             end
         end
@@ -113,6 +117,17 @@ module AllGems
             end
             AllGems.db[:lids] << {:uid => id}
             id
+        end
+        
+        def save_default_docs
+            @valid_docs.each do |doc|
+                begin
+                    AllGems.db[:docs] << {:name => doc.to_s}
+                rescue
+                    #ignore
+                end
+            end
+            @AllGems.all.each{|ds| @doc_hash[ds[:name].to_sym] = ds[:id]}
         end
     end
 end
