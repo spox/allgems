@@ -2,7 +2,6 @@ module AllGems
     class IndexBuilder
         def initialize(args={})
             raise ArgumentError.new('Expecting a Sequel::Database to be passed') unless args[:database] && args[:database].is_a?(Sequel::Database)
-            @db = args[:database]
         end
         def build_array(filter=[])
             b = []
@@ -11,9 +10,14 @@ module AllGems
             AllGems.logger.debug("List size: #{b.size}")
             b.reject{|x|filter.include?(x)}
         end
+        # Generate array of all gem versions that does not have all documentation generated
         def local_array
-            la = @db[:versions].join(:gems, :id => :gem_id).select(:name, :version).all.collect{|x|x.values}
-            la.map{|a| {:name => a[0], :version => Gem::Version.new(a[1])}}
+            AllGems.db.transaction do
+                la = AllGems.db[:versions].join(:gems, :id => :gem_id).join(:docs_versions, :version_id, :versions__id)
+                la.join(:docs, :id => :docs_versions__doc_id).filter(~{:docs__name => AllGems.doc_format.map{|x|x.to_s}})
+                la.select(:gems__name.as(:name), :versions__version.as(:version))
+                la.all.collect{|x| {:name => x[:name], :version => Gem::Version.new(x[:version])}}
+            end
         end
     end
 end
