@@ -96,13 +96,17 @@ module AllGems
                 vid = vid.first[:version_id]
                 AllGems.logger.debug("Version for this save is ID: #{vid}")
                 data[:modclass].each{|c| self.add_class(c, vid)}
-                data[:methods].each do |mc|
-                    cid = self.add_class(mc[:location], vid)
-                    mid = self.add_method(mc[:method])
-                    begin
-                        AllGems.db[:classes_methods] << {:class_id => cid, :method_id => mid, :version_id => vid}
-                    rescue
-                        #ignore duplicates#
+                AllGems.db.transaction do
+                    data[:methods].each do |mc|
+                        cid = self.add_class(mc[:location], vid)
+                        mid = self.add_method(mc[:method])
+                        begin
+                            AllGems.db.transaction do
+                                AllGems.db[:classes_methods] << {:class_id => cid, :method_id => mid, :version_id => vid}
+                            end
+                        rescue
+                            #ignore duplicates#
+                        end
                     end
                 end
                 rescue StandardError => boom
@@ -116,8 +120,10 @@ module AllGems
             def add_class(cls, vid)
                 id = AllGems.db[:classes].filter(:class => cls).first
                 unless(id)
-                    id = AllGems.db[:classes] << {:class => cls}
-                    AllGems.db[:classes_gems] << {:class_id => id, :version_id => vid}
+                    AllGems.db.transaction do
+                        id = AllGems.db[:classes] << {:class => cls}
+                        AllGems.db[:classes_gems] << {:class_id => id, :version_id => vid}
+                    end
                 else
                     id = id[:id]
                 end
@@ -129,7 +135,9 @@ module AllGems
             def add_method(mthd)
                 id = AllGems.db[:methods].filter(:method => mthd).first
                 unless(id)
-                    id = AllGems.db[:methods] << {:method => mthd}
+                    AllGems.db.transaction do
+                        id = AllGems.db[:methods] << {:method => mthd}
+                    end
                 else
                     id = id[:id]
                 end
