@@ -21,6 +21,8 @@ usage: allgems [opts]
 --host -H host.name:\t\t\t\tSet the domain name for the associated site
 --port -p \\d+:\t\t\t\t\tSet port for the associated site
 --sync -S\t\t\t\t\tSync local gems to AllGems site (generally used with -H and -p)
+--save -s [/path]:\t\t\t\tSave configuration to given path (Default ~/.allgems.config)
+--load -l [/path]:\t\t\t\tLoad configuration from path (Default ~/.allgems.config)
 --help -h:\t\t\t\t\tDisplay this help text"
 end
 
@@ -66,11 +68,18 @@ opts = GetoptLong.new(
     ['--server', '-s', GetoptLong::NO_ARGUMENT],
     ['--host', '-H', GetoptLong::REQUIRED_ARGUMENT],
     ['--port', '-p', GetoptLong::REQUIRED_ARGUMENT],
-    ['--sync', '-S', GetoptLong::NO_ARGUMENT]
+    ['--sync', '-S', GetoptLong::NO_ARGUMENT],
+    ['--save', '-s', GetoptLong::OPTIONAL_ARGUMENT],
+    ['--load', '-l', GetoptLong::OPTIONAL_ARGUMENT]
 )
-
+do_load = nil
+do_save = nil
 opts.each do |opt, arg|
     case opt
+    when '--save'
+        do_save = arg ? arg : File.expand_path('~/.allgems.config')
+    when '--load'
+        do_load = arg ? arg : File.expand_path('~/.allgems.config')
     when '--server'
         require 'allgems/CommandReceiver'
         config[:server] = true
@@ -155,6 +164,19 @@ end
 unless(File.writable?(config[:dbfile]))
     $stderr.puts "ERROR: database file is not writable. (#{config[:dbfile]})"
     exit CONFIGURATION_ERROR
+end
+
+if(do_load)
+    require 'json'
+    config = JSON.parse(File.read(do_load))
+end
+
+if(do_save)
+    require 'json'
+    file = File.open(do_save, 'w')
+    file.write(config.to_json)
+    file.close
+    exit SUCCESS
 end
 
 # set everything
