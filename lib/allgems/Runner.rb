@@ -11,11 +11,10 @@ module AllGems
         attr_accessor :pool
         def initialize(args={})
             raise ArgumentError.new('Expecting path to database') unless args[:db_path]
-            @db = Sequel.connect("sqlite://#{args[:db_path]}")
-            AllGems.initialize_db(@db)
+            AllGems.initialize_db(Sequel.connect("sqlite://#{args[:db_path]}"))
             @pool = ActionPool::Pool.new(:max_threads => args[:runners] ? args[:runners] : 10) # use our own pool since we will overflow it
             GemWorker.setup
-            @index = IndexBuilder.new(:database => @db)
+            @index = IndexBuilder.new
             @interval = args[:interval] ? args[:interval] : nil
             @timer = nil
             @stop = false
@@ -36,7 +35,14 @@ module AllGems
         def sync
             @self = Thread.current
             Gem.refresh
-            @pool.add_jobs(@index.build_array(@index.local_array).map{|x| lambda{GemWorker.process({:database => @db}.merge(x))}})
+            spec_jobs = []
+            doc_jobs = []
+            @index.build_array(@index.local_array).each do |x|
+                spec_jobs << lambda{GemWorker.save_data(GemWorker.get_spec(x[:name], x[:version])[0])}
+                doc_jobs << lambda{GemWorker.process(x)}
+            end
+            @pool.add_jobs(spec_jobs)
+            @pool.add_jobs(doc_jobs)
             begin
                 @pool << lambda{@self.raise Wakeup.new}
                 sleep
