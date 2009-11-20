@@ -21,8 +21,9 @@ usage: allgems [opts]
 --host -H host.name:\t\t\t\tSet the domain name for the associated site
 --port -p \\d+:\t\t\t\t\tSet port for the associated site
 --sync -S\t\t\t\t\tSync local gems to AllGems site (generally used with -H and -p)
---save -s [/path]:\t\t\t\tSave configuration to given path (Default ~/.allgems.config)
+--save -w [/path]:\t\t\t\tSave configuration to given path (Default ~/.allgems.config)
 --load -l [/path]:\t\t\t\tLoad configuration from path (Default ~/.allgems.config)
+--sources -z source1[,source2,source3]:\t\tSet sources to fetch gems from (defaults Gem.sources)
 --help -h:\t\t\t\t\tDisplay this help text"
 end
 
@@ -48,7 +49,8 @@ config = {
     :server => false,
     :host => nil,
     :port => nil,
-    :sync => false
+    :sync => false,
+    :sources => []
 }
 
 # figure out what we are doing
@@ -69,8 +71,9 @@ opts = GetoptLong.new(
     ['--host', '-H', GetoptLong::REQUIRED_ARGUMENT],
     ['--port', '-p', GetoptLong::REQUIRED_ARGUMENT],
     ['--sync', '-S', GetoptLong::NO_ARGUMENT],
-    ['--save', '-s', GetoptLong::OPTIONAL_ARGUMENT],
-    ['--load', '-l', GetoptLong::OPTIONAL_ARGUMENT]
+    ['--save', '-w', GetoptLong::OPTIONAL_ARGUMENT],
+    ['--load', '-l', GetoptLong::OPTIONAL_ARGUMENT],
+    ['--sources', '-z', GetoptLong::REQUIRED_ARGUMENT]
 )
 do_load = nil
 do_save = nil
@@ -80,6 +83,8 @@ opts.each do |opt, arg|
         do_save = arg ? arg : File.expand_path('~/.allgems.config')
     when '--load'
         do_load = arg ? arg : File.expand_path('~/.allgems.config')
+    when '--sources'
+        config[:sources] = arg.split(',')
     when '--server'
         require 'allgems/CommandReceiver'
         config[:server] = true
@@ -187,6 +192,7 @@ AllGems.logger = Logger.new(config[:logto], config[:level])
 AllGems.allgems = config[:all]
 AllGems.domain_name = config[:host] if config[:host]
 AllGems.listen_port = config[:port] if config[:port]
+AllGems.sources = config[:sources]
 
 # are we just giving out configuration?
 if(config[:config_output])
