@@ -1,7 +1,6 @@
 require 'sinatra'
 require 'allgems/ViewHelpers'
 require 'allgems/Specer'
-require 'rubygems/specification'
 
 module AllGems
     
@@ -15,6 +14,7 @@ module AllGems
 
         before do
             @environment = options.environment
+            @specer = AllGems::Specer.new
         end
         
         get '/stylesheets/:stylesheet.css' do
@@ -122,7 +122,7 @@ module AllGems
         def load_gem_spec(gem, version=nil)
             version ||= get_latest(gem)
             raise 'failed gem' unless version
-            Specer.get_spec(gem, version)
+            @specer.get_spec(gem, version)
         end
 
         # gem:: name of the gem
