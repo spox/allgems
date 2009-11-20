@@ -1,9 +1,9 @@
 require 'zlib'
 require 'allgems/Helpers'
+require 'rubygems/specification'
 module AllGems
     class Specer
         def initialize
-            AllGems.initialize_pool
         end
         # Retrieve gem spec from database
         def get_spec(gem, version=nil, uri=false)
