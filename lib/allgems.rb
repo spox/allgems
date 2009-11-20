@@ -1,4 +1,5 @@
 require 'logger'
+require 'allgems/Exceptions'
 module AllGems
     class << self
         attr_accessor :data_directory, :logger, :db, :allgems, :pool, :timer, :listen_port, :domain_name
@@ -19,6 +20,7 @@ module AllGems
             @domain_name = 'localhost'
             @doc_hash = {}
             @valid_docs = [:hanna, :rdoc, :sdoc]
+            @sources = []
         end
         # db: Sequel::Database
         # Run any migrations needed
@@ -28,6 +30,17 @@ module AllGems
             require 'sequel/extensions/migration'
             Sequel::Migrator.apply(db, "#{File.expand_path(__FILE__).gsub(/\/[^\/]+$/, '')}/allgems/migrations")
             save_default_docs
+        end
+        # Return array of sources to pull gems
+        def sources
+            @sources = Gem.sources if @sources.empty?
+            @sources
+        end
+        # s:: source string or array
+        # Set sources to given string or array
+        def sources=(s)
+            raise ArgumentError.new("Sources must be in an array") unless s.is_a?(Array)
+            @sources = s
         end
         # Format for documentation
         def doc_format
@@ -118,7 +131,7 @@ module AllGems
             AllGems.db[:lids] << {:uid => id}
             id
         end
-        
+        # Make sure the accepted documentation types are in the database
         def save_default_docs
             @valid_docs.each do |doc|
                 begin
@@ -127,7 +140,7 @@ module AllGems
                     #ignore
                 end
             end
-            @AllGems.all.each{|ds| @doc_hash[ds[:name].to_sym] = ds[:id]}
+            AllGems.db[:docs].all.each{|ds| @doc_hash[ds[:name].to_sym] = ds[:id]}
         end
     end
 end
