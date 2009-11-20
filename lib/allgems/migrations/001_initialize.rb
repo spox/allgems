@@ -1,16 +1,16 @@
 Class.new(Sequel::Migration) do
     def up
-        AllGems.db << "CREATE TABLE gems (
-                        name VARCHAR NOT NULL UNIQUE COLLATE NOCASE,
-                        summary TEXT,
-                        description TEXT,
-                        id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT)"
-#         create_table(:gems) do
-#             String :name, :null => false, :unique => true
-#             String :summary
-#             String :description
-#             primary_key :id, :null => false
-#         end
+#         AllGems.db << "CREATE TABLE gems (
+#                         name VARCHAR NOT NULL UNIQUE COLLATE NOCASE,
+#                         summary TEXT,
+#                         description TEXT,
+#                         id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT)"
+        create_table(:gems) do
+            String :name, :null => false, :unique => true
+            String :summary
+            String :description
+            primary_key :id, :null => false
+        end
         AllGems.db.create_table(:versions) do
             String :version, :null => false
             Time :release, :null => false
@@ -18,20 +18,19 @@ Class.new(Sequel::Migration) do
             index [:gem_id, :version], :unique => true
             primary_key :id, :null => false
         end
-        AllGems.db << "CREATE TABLE specs (
-                        full_name VARCHAR NOT NULL UNIQUE COLLATE NOCASE,
-                        spec TEXT NOT NULL,
-                        uri VARCHAR NOT NULL,
-                        version_id INTEGER NOT NULL REFERENCES versions,
-                        id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT)"
-#         AllGems.db.create_table(:specs) do
-#             String :full_name, :null => false, :unique => true
-#             String :spec, :null => false
-#             String :uri, :null => false
-#             foreign_key :version_id, :table => :versions, :null => false
-#             index [:spec, :version_id], :unique => true
-#             primary_key :id, :null => false
-#         end
+#         AllGems.db << "CREATE TABLE specs (
+#                         full_name VARCHAR NOT NULL UNIQUE COLLATE NOCASE,
+#                         spec TEXT NOT NULL,
+#                         uri VARCHAR NOT NULL,
+#                         version_id INTEGER NOT NULL REFERENCES versions,
+#                         id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT)"
+        AllGems.db.create_table(:specs) do
+            String :full_name, :null => false, :unique => true
+            String :spec, :null => false
+            String :uri, :null => false
+            foreign_key :version_id, :table => :versions, :null => false, :unique => true
+            primary_key :id, :null => false
+        end
         AllGems.db.create_table(:classes) do
             String :class, :null => false, :unique => true
             primary_key :id, :null => false
