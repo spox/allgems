@@ -1,6 +1,6 @@
 require 'actionpool'
 require 'actiontimer'
-require 'allgems/IndexBuilder'
+require 'allgems/Specer'
 require 'allgems/GemWorker'
 
 module AllGems
@@ -13,11 +13,11 @@ module AllGems
             raise ArgumentError.new('Expecting path to database') unless args[:db_path]
             AllGems.initialize_db(Sequel.connect("sqlite://#{args[:db_path]}"))
             @pool = ActionPool::Pool.new(:max_threads => args[:runners] ? args[:runners] : 10) # use our own pool since we will overflow it
-            GemWorker.setup
-            @index = IndexBuilder.new
             @interval = args[:interval] ? args[:interval] : nil
             @timer = nil
             @stop = false
+            @running = false
+            @specer = Specer.new
             @self = Thread.current
         end
         
@@ -25,7 +25,7 @@ module AllGems
             if(@interval)
                 AllGems.initialize_timer
                 sync
-                AllGems.timer.add(@interval){ sync }
+                AllGems.timer.add(@interval){ sync unless @running }
             else
                 sync
             end
@@ -33,16 +33,10 @@ module AllGems
         # Get the list of gems we need and load up the pool. Then take a nap
         # until the pool gets bored and wakes us up
         def sync
+            @running = true
             @self = Thread.current
-            Gem.refresh
-            spec_jobs = []
-            doc_jobs = []
-            @index.build_array(@index.local_array).each do |x|
-                spec_jobs << lambda{GemWorker.save_data(GemWorker.get_spec(x[:name], x[:version])[0])}
-                doc_jobs << lambda{GemWorker.process(x)}
-            end
-            @pool.add_jobs(spec_jobs)
-            @pool.add_jobs(doc_jobs)
+#             @specer.load_specs
+            @pool.add_jobs @specer.missing_docs.map{|x| [lambda{|x| GemWorker.new(x)}, [x.dup]]}
             begin
                 @pool << lambda{@self.raise Wakeup.new}
                 sleep
@@ -52,19 +46,17 @@ module AllGems
             rescue StandardError => boom
                 AllGems.logger.error boom.to_s
                 retry unless @stop
+            ensure
+                @running = false
             end
         end
         # Stop the runner
         def stop(now=false)
             @timer.clear if @timer
             @stop = true
-            @self.raise Wakeup unless Thread.current == @self
+            @self.raise Wakeup.new unless Thread.current == @self
+            @pool.shutdown(now)
             AllGems.pool.shutdown(now)
-            GemWorker.pool.shutdown(now)
         end
-
-        class Wakeup < Exception
-        end
-
     end
 end
