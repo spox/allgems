@@ -86,12 +86,16 @@ module AllGems
         def missing_docs
             AllGems.db.transaction do
                 ids = []
+                AllGems.logger.debug("Searching for gems with missing docs")
                 AllGems.db[:versions].map(:id).each do |id|
                     add = false
                     AllGems.doc_format.map{|x| AllGems.doc_hash[x.to_sym]}.each do |doc_id|
                         add = true if AllGems.db[:docs_versions].filter(:doc_id => doc_id, :version_id => id).count < 1
                     end
-                    ids.push(id) if add
+                    if(add)
+                        ids.push(id)
+                        AllGems.logger.debug("Added gem with version id: #{id} for document generation")
+                    end
                 end
                 specs = AllGems.db[:specs].filter(:version_id => ids).select(:spec)
                 specs.all.map{|x| Marshal.load(x[:spec].unpack('m')[0])}
