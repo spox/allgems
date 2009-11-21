@@ -11,7 +11,8 @@ usage: allgems [opts]
 --notall -n:\t\t\t\t\tDon't fetch all versions
 --daemonize -D:\t\t\t\t\tRun as a daemon
 --datadir -d /path:\t\t\t\tData directory for documents/gems (defaults to /tmp/allgems)
---dbfile -b /path/file.db\t\t\tPath to sqlite file (defaults $datadir/allgems.db)
+--dbinfo -b (/path/file.db|user:pass@host)\tDatabase info. Path for sqlite or user/pass pair for pgsql (defaults sqlite path \#{datadir}/allgems.db)
+--dbtype -t (mysql|postgres|sqlite)\t\tType of database connection
 --formatter -f rdoc[,hanna,sdoc]:\t\tRDoc formatter (defaults to rdoc (which is darkfish))
 --interval -i \\d+:\t\t\t\tSeconds to wait before updating documents (defaults to 1 hour)
 --runners -r \\d+:\t\t\t\tNumber of threads to use (defaults to 10)
@@ -43,6 +44,10 @@ config = {
     :interval => 3600,
     :runners => 10,
     :dbfile => nil,
+    :dbuser => nil,
+    :dbpass => nil,
+    :dbtype => :sqlite,
+    :dbhost => 'localhost',
     :logto => nil,
     :level => Logger::INFO,
     :all => true,
@@ -57,7 +62,7 @@ config = {
 opts = GetoptLong.new(
     ['--daemonize', '-D', GetoptLong::NO_ARGUMENT],
     ['--datadir', '-d', GetoptLong::REQUIRED_ARGUMENT],
-    ['--dbfile', '-b', GetoptLong::REQUIRED_ARGUMENT],
+    ['--dbinfo', '-b', GetoptLong::REQUIRED_ARGUMENT],
     ['--formatter', '-f', GetoptLong::REQUIRED_ARGUMENT],
     ['--interval', '-i', GetoptLong::REQUIRED_ARGUMENT],
     ['--runners', '-r', GetoptLong::REQUIRED_ARGUMENT],
@@ -73,7 +78,8 @@ opts = GetoptLong.new(
     ['--sync', '-S', GetoptLong::NO_ARGUMENT],
     ['--save', '-w', GetoptLong::OPTIONAL_ARGUMENT],
     ['--load', '-l', GetoptLong::OPTIONAL_ARGUMENT],
-    ['--sources', '-z', GetoptLong::REQUIRED_ARGUMENT]
+    ['--sources', '-z', GetoptLong::REQUIRED_ARGUMENT],
+    ['--dbtype', '-t', GetoptLong::REQUIRED_ARGUMENT]
 )
 do_load = nil
 do_save = nil
@@ -100,8 +106,23 @@ opts.each do |opt, arg|
         config[:interval] = arg.to_i
     when '--runners'
         config[:runners] = arg.to_i
-    when '--dbfile'
-        config[:dbfile] = arg
+    when '--dbtype'
+        exit CONFIGURATION_ERROR unless [:postgres, :mysql, :sqlite].include?(arg.to_sym)
+        config[:dbtype] = arg.to_sym
+    when '--dbinfo'
+        index = arg.index(':')
+        if(index)
+            at = arg.index('@')
+            config[:dbuser] = arg.slice(0,index)
+            if(at)
+                config[:dbpass] = arg.slice(index+1,at - index -1)
+                config[:dbhost] = arg.slice(at+1, arg.length)
+            else
+                config[:dbpass] = arg.slice(index+1,arg.length)
+            end
+        else
+            config[:dbfile] = arg
+        end
     when '--version'
         puts "VERSION INFO"
     when '--log'
@@ -131,7 +152,8 @@ opts.each do |opt, arg|
     end
 end
 
-config[:dbfile] = "#{config[:datadir]}/allgems.db" if config[:dbfile].nil?
+config[:dbfile] = "#{config[:datadir]}/allgems.db" if config[:dbfile].nil? && config[:dbuser].nil?
+config[:dbtype] = :postgres if config[:dbuser] && config[:dbtype] = :sqlite
 config[:interval] = nil unless config[:daemonize]
 
 # yell at user for bad values
@@ -160,13 +182,13 @@ unless(File.writable?(config[:datadir]))
         exit CONFIGURATION_ERROR
     end
 end
-unless(File.exists?(config[:dbfile]))
+if(config[:dbfile] && !File.exists?(config[:dbfile]))
     begin
         FileUtils.touch config[:dbfile]
     rescue SystemCallError
     end
 end
-unless(File.writable?(config[:dbfile]))
+if(config[:dbfile] && !File.writable?(config[:dbfile]))
     $stderr.puts "ERROR: database file is not writable. (#{config[:dbfile]})"
     exit CONFIGURATION_ERROR
 end
@@ -193,6 +215,17 @@ AllGems.allgems = config[:all]
 AllGems.domain_name = config[:host] if config[:host]
 AllGems.listen_port = config[:port] if config[:port]
 AllGems.sources = config[:sources]
+case config[:dbtype]
+when :sqlite
+    AllGems.dbstring = "sqlite://#{config[:dbfile]}"
+when :mysql
+    AllGems.dbstring = "mysql://#{config[:dbuser]}:#{config[:dbpass]}@#{config[:dbhost]}"
+when :postgres
+    AllGems.dbstring = "postgres://#{config[:dbuser]}:#{config[:dbpass]}@#{config[:dbhost]}"
+else
+    puts "Unsupported database version"
+    exit CONFIGURATION_ERROR
+end
 
 # are we just giving out configuration?
 if(config[:config_output])
@@ -204,7 +237,7 @@ Apache virtual host configuration:
         # ServerName #{AllGems.domain_name}
 
         SetEnv DATA_DIR #{AllGems.data_directory}
-        SetEnv DATA_DB #{dbfile}
+        SetEnv DB_STRING #{AllGems.dbstring} # yeah, not the best thing to do here, I know.
         
         Alias /docs #{AllGems.data_directory}
         Alias /docs/ #{AllGems.data_directory}/
@@ -256,7 +289,7 @@ Process.setpriority(Process::PRIO_PROCESS, 0, 19) unless ON_WINDOWS
 # finally, lets get going
 
 require 'allgems/Runner'
-runner = AllGems::Runner.new(:db_path => config[:dbfile], :runners => config[:runners], :interval => config[:interval])
+runner = AllGems::Runner.new(:runners => config[:runners], :interval => config[:interval])
 trap('SIGINT'){runner.stop(true)}
 trap('SIGHUP'){runner.stop; runner.do_sync} unless ON_WINDOWS
 server = nil
