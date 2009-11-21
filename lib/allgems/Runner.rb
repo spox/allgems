@@ -10,9 +10,8 @@ module AllGems
         # :interval:: how often to update documents (useless if using cron)
         attr_accessor :pool
         def initialize(args={})
-            raise ArgumentError.new('Expecting path to database') unless args[:db_path]
-            AllGems.initialize_db(Sequel.connect("sqlite://#{args[:db_path]}"))
-            @pool = ActionPool::Pool.new(:max_threads => args[:runners] ? args[:runners] : 10) # use our own pool since we will overflow it
+            AllGems.initialize_db
+            @pool = ActionPool::Pool.new(:max_threads => args[:runners] ? args[:runners] : 10, :a_to => 60*5) # use our own pool since we will overflow it
             @interval = args[:interval] ? args[:interval] : nil
             @timer = nil
             @stop = false
@@ -35,7 +34,7 @@ module AllGems
         def sync
             @running = true
             @self = Thread.current
-#             @specer.load_specs
+            @specer.load_specs
             @pool.add_jobs @specer.missing_docs.map{|x| [lambda{|x| GemWorker.new(x)}, [x.dup]]}
             begin
                 @pool << lambda{@self.raise Wakeup.new}
@@ -56,7 +55,7 @@ module AllGems
             @stop = true
             @self.raise Wakeup.new unless Thread.current == @self
             @pool.shutdown(now)
-            AllGems.pool.shutdown(now)
+            AllGems.pool.shutdown(now) if AllGems.pool
         end
     end
 end
