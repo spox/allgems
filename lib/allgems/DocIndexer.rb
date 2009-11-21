@@ -98,12 +98,10 @@ module AllGems
                 data[:modclass].each{|c| self.add_class(c, vid)}
                 AllGems.db.transaction do
                     data[:methods].each do |mc|
-                        cid = self.add_class(mc[:location], vid)
-                        mid = self.add_method(mc[:method])
+                        cid = self.add_class(mc[:location], vid, false)
+                        mid = self.add_method(mc[:method], false)
                         begin
-                            AllGems.db.transaction do
-                                AllGems.db[:classes_methods] << {:class_id => cid, :method_id => mid, :version_id => vid}
-                            end
+                            AllGems.db[:classes_methods] << {:class_id => cid, :method_id => mid, :version_id => vid}
                         rescue
                             #ignore duplicates#
                         end
@@ -117,10 +115,15 @@ module AllGems
             # cls:: class name
             # vid:: version id from from versions table
             # Add a new class name and associate it with the gem it's from
-            def add_class(cls, vid)
+            def add_class(cls, vid, trans=true)
                 id = AllGems.db[:classes].filter(:class => cls).first
                 unless(id)
-                    AllGems.db.transaction do
+                    if(trans)
+                        AllGems.db.transaction do
+                            id = AllGems.db[:classes] << {:class => cls}
+                            AllGems.db[:classes_gems] << {:class_id => id, :version_id => vid}
+                        end
+                    else
                         id = AllGems.db[:classes] << {:class => cls}
                         AllGems.db[:classes_gems] << {:class_id => id, :version_id => vid}
                     end
@@ -132,10 +135,14 @@ module AllGems
 
             # mthd:: method name
             # add a new method name to the database
-            def add_method(mthd)
+            def add_method(mthd, trans=true)
                 id = AllGems.db[:methods].filter(:method => mthd).first
                 unless(id)
-                    AllGems.db.transaction do
+                    if(trans)
+                        AllGems.db.transaction do
+                            id = AllGems.db[:methods] << {:method => mthd}
+                        end
+                    else
                         id = AllGems.db[:methods] << {:method => mthd}
                     end
                 else
