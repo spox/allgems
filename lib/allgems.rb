@@ -2,58 +2,73 @@ require 'logger'
 require 'allgems/Exceptions'
 module AllGems
     class << self
-        attr_accessor :data_directory, :logger, :db, :allgems, :pool, :timer, :listen_port, :domain_name
-        attr_reader :doc_hash
+        # This is a utility hack for me so I don't have to add in stuff
+        # for every little thing I want up here.
+        def method_missing(*args)
+            @config ||= {}
+            if(args.size == 1)
+                @config[args[0].to_sym]
+            elsif(args.size == 2 && args[0].slice(-1) == '=')
+                @config[args[0].slice(0,args[0].length-1).to_sym] = args[1]
+            else
+                raise NoMethodError.new("Sorry, this method: #{args[0]} does not live here")
+            end
+        end
+        # Set our default values
         def defaulterize
-            @data_directory = nil
-            @doc_format = ['rdoc']
-            @logger = Logger.new(nil)
-            @db = nil
-            @tg = nil
-            @ti = nil
-            @allgems = true
-            @refresh = Time.now.to_i + 3600
-            @pool = nil
-            @timer = nil
-            @listen_port = 4000
-            @start_time = Time.now.to_i
-            @domain_name = 'localhost'
-            @doc_hash = {}
-            @valid_docs = [:hanna, :rdoc, :sdoc]
-            @sources = []
+            self.data_directory = nil
+            self.doc_format = ['rdoc']
+            self.logger = Logger.new(nil)
+            self.db = nil
+            self.tg = nil
+            self.ti = nil
+            self.allgems = true
+            self.refresh = Time.now.to_i + 3600
+            self.pool = nil
+            self.timer = nil
+            self.listen_port = 4000
+            self.start_time = Time.now.to_i
+            self.domain_name = 'localhost'
+            self.doc_hash = {}
+            self.valid_docs = [:hanna, :rdoc, :sdoc]
+            self.sources = []
         end
         # db: Sequel::Database
         # Run any migrations needed
         # NOTE: Call before using the database
-        def initialize_db(db)
-            self.db = db
+        def initialize_db
+            self.logger.debug("Connecting to database using connection string: #{self.dbstring}")
+            self.db = Sequel.connect("#{self.dbstring}", :max_connections => 50, :pool_timeout => 90)
             require 'sequel/extensions/migration'
             Sequel::Migrator.apply(db, "#{File.expand_path(__FILE__).gsub(/\/[^\/]+$/, '')}/allgems/migrations")
             save_default_docs
         end
         # Return array of sources to pull gems
         def sources
-            @sources = Gem.sources if @sources.empty?
-            @sources
+            self.sources = Gem.sources if @config[:sources].empty?
+            @config[:sources]
         end
         # s:: source string or array
         # Set sources to given string or array
         def sources=(s)
             raise ArgumentError.new("Sources must be in an array") unless s.is_a?(Array)
-            @sources = s
+            @config[:sources] = s
         end
-        # Format for documentation
-        def doc_format
-            @doc_format
-        end
+
         # f:: format
         # Sets format for documentation. Should be one of: hanna, rdoc, sdoc
         def doc_format=(f)
-            @doc_format = []
-            f.split(',').each do |type|
-                type = type.to_sym
-                raise ArgumentError.new("Valid types: hanna, sdoc, rdoc") unless @valid_docs.include?(type)
-                @doc_format << type
+            @config[:doc_format] = []
+            if(f.is_a?(String))
+                f.split(',').each do |type|
+                    type = type.to_sym
+                    raise ArgumentError.new("Valid types: hanna, sdoc, rdoc") unless self.valid_docs.include?(type)
+                    self.doc_format.push(type)
+                end
+            elsif(f.is_a?(Array))
+                @config[:doc_format] = f
+            else
+                ArgumentError.new('Expecting a string or array')
             end
         end
         # Location of public directory
@@ -63,24 +78,24 @@ module AllGems
         # Total number of unique gem names installed
         def total_gems
             return 0 if self.db.nil?
-            if(@tg.nil? || Time.now.to_i > @refresh)
-                @tg = self.db[:gems].count
-                @refresh = Time.now.to_i + 3600
+            if(self.tg.nil? || Time.now.to_i > self.refresh)
+                self.tg = self.db[:gems].count
+                self.refresh = Time.now.to_i + 3600
             end
-            @tg
+            self.tg
         end
         # Total number of actual gems installed
         def total_installs
             return 0 if self.db.nil?
-            if(@ti.nil? || Time.now.to_i > @refresh)
-                @ti = self.db[:versions].count
-                @refresh = Time.now.to_i + 3600
+            if(self.ti.nil? || Time.now.to_i > self.refresh)
+                self.ti = self.db[:versions].count
+                self.refresh = Time.now.to_i + 3600
             end
-            @ti
+            self.ti
         end
         # Newest gem based on release date
         def newest_gem
-            g = AllGems.db[:versions].join(:gems, :id => :gem_id).order(:release.desc).limit(1).select(:name, :release).first
+            g = self.db[:versions].join(:gems, :id => :gem_id).order(:release.desc).limit(1).select(:name, :release).first
             {:name => g[:name], :release => g[:release]}
         end
         # Path to hanna hack
@@ -90,30 +105,30 @@ module AllGems
         # runners:: Number of threads
         # Create a global use pool
         def initialize_pool(args=nil)
-            args = {:a_to => 60*5} unless args
-            @pool = ActionPool::Pool.new(args) if @pool.nil?
+            args = {:a_to => 60*5, :max_threads => 20} unless args
+            self.pool = ActionPool::Pool.new(args) if self.pool.nil?
         end
         # pool:: ActionPool to use. (Uses global pool if available)
         # Create a global use timer
         def initialize_timer(pool=nil)
-            pool = @pool unless pool
-            @timer = ActionTimer::Timer.new(:pool => pool)
+            pool = self.pool unless pool
+            self.timer = ActionTimer::Timer.new(:pool => pool) # make this adjustable
         end
         # Seconds program has been running
         def uptime
-            Time.now.to_i - @start_time
+            Time.now.to_i - self.start_time
         end
         # id:: uid to be used
         # gems:: Array of gem names and versions [[name,version],[name,version]]
         # Links the given gem names and versions to the ID given
         def link_id(id, gems)
             gems.each do |info|
-                vid = AllGems.db[:versions].join(:gems, :id => :gem_id).filter(:name => info[0], :version => info[1]).select(:versions__id.as(:vid)).first
+                vid = self..db[:versions].join(:gems, :id => :gem_id).filter(:name => info[0], :version => info[1]).select(:versions__id.as(:vid)).first
                 next if vid.nil?
                 vid = vid[:vid]
-                lid = AllGems.db[:lids].filter(:uid => id).first[:id]
+                lid = self.db[:lids].filter(:uid => id).first[:id]
                 begin
-                    AllGems.db[:gems_lids] << {:version_id => vid, :lids_id => lid}
+                    self.db[:gems_lids] << {:version_id => vid, :lids_id => lid}
                 rescue
                     #ignore duplicates
                 end
@@ -125,22 +140,22 @@ module AllGems
         # TODO: synchronzie access and use transactions to prevent duplicates
         def uid(length = 50)
             id = rand(36**length).to_s(36)
-            if(AllGems.db[:lids].filter(:uid => id).count > 0)
+            if(self.db[:lids].filter(:uid => id).count > 0)
                 id = uuid(length)
             end
-            AllGems.db[:lids] << {:uid => id}
+            self.db[:lids] << {:uid => id}
             id
         end
         # Make sure the accepted documentation types are in the database
         def save_default_docs
-            @valid_docs.each do |doc|
+            self.valid_docs.each do |doc|
                 begin
-                    AllGems.db[:docs] << {:name => doc.to_s}
+                    self.db[:docs] << {:name => doc.to_s}
                 rescue
                     #ignore
                 end
             end
-            AllGems.db[:docs].all.each{|ds| @doc_hash[ds[:name].to_sym] = ds[:id]}
+            self.db[:docs].all.each{|ds| self.doc_hash[ds[:name].to_sym] = ds[:id]}
         end
     end
 end
