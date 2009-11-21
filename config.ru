@@ -2,7 +2,8 @@
 
 AllGems.defaulterize
 AllGems.data_directory = ENV['DATA_DIR']
-AllGems.initialize_db(Sequel.connect("sqlite://#{ENV['DATA_DB']}"))
+AllGems.dbstring = ENV['DB_STRING']
+AllGems.initialize_db
 
 disable :run
 AllGems::App.set({
