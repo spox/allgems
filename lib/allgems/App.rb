@@ -30,7 +30,7 @@ module AllGems
         get '/gems/?' do
             show_layout = params[:layout] != 'false'
             @show_as = params[:as] && params[:as] == 'table' ? 'table' : 'columns'
-            set = gems_dataset.order(:name.asc)
+            set = gems_dataset.order(:name.asc).distinct(:name)
             @page = params[:page] ? params[:page].to_i : 1
             if(@search = params[:search])
                 set = do_search(params[:search])
@@ -102,7 +102,7 @@ module AllGems
         def gems_dataset
             lid = request.cookies['lid']
             if(lid)
-                AllGems.db[:versions].join(:gems, :id => :gem_id).join(:gems_lids, :version_id => :versions__id).join(:lids, :id => :gems_lids__lids_id).select(:gems__name.as(:name), :gems__id.as(:id)).distinct
+                AllGems.db[:versions].join(:gems, :id => :gem_id).join(:gems_lids, :version_id => :versions__id).join(:lids, :id => :gems_lids__lids_id).select(:gems__name.as(:name), :gems__id.as(:id)).order(:id)
             else
                 AllGems.db[:gems]
             end
@@ -112,7 +112,7 @@ module AllGems
         def versions_dataset
             lid = request.cookies['lid']
             if(lid)
-                AllGems.db[:versions].join(:gems_lids, :version_id => :versions__id).join(:lids, :id => :gems_lids__lids_id).select(:versions__id.as(:id), :versions__version.as(:version), :versions__release.as(:release), :versions__gem_id.as(:gem_id)).distinct
+                AllGems.db[:versions].join(:gems_lids, :version_id => :versions__id).join(:lids, :id => :gems_lids__lids_id).select(:versions__id.as(:id), :versions__version.as(:version), :versions__release.as(:release), :versions__gem_id.as(:gem_id))
             else
                 AllGems.db[:versions]
             end
@@ -128,7 +128,7 @@ module AllGems
         # gem:: name of the gem
         # Returns the latest version of the given gem or nil
         def get_latest(gem)
-            versions_dataset.join(:gems, :id => :gem_id).filter(:name => gem).order(:version.desc).limit(1).select(:version).map(:version)[0]
+            versions_dataset.join(:gems, :gems__id => :versions__gem_id).filter(:name => gem).order(:version.desc).limit(1).select(:version).map(:version)[0]
         end
 
         # terms:: terms to search on
