@@ -123,7 +123,7 @@ module AllGems
         # Links the given gem names and versions to the ID given
         def link_id(id, gems)
             gems.each do |info|
-                vid = self..db[:versions].join(:gems, :id => :gem_id).filter(:name => info[0], :version => info[1]).select(:versions__id.as(:vid)).first
+                vid = self.db[:versions].join(:gems, :id => :gem_id).filter(:name => info[0], :version => info[1]).select(:versions__id.as(:vid)).first
                 next if vid.nil?
                 vid = vid[:vid]
                 lid = self.db[:lids].filter(:uid => id).first[:id]
