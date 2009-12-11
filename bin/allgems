@@ -237,7 +237,8 @@ Apache virtual host configuration:
         # ServerName #{AllGems.domain_name}
 
         SetEnv DATA_DIR #{AllGems.data_directory}
-        SetEnv DB_STRING #{AllGems.dbstring} # yeah, not the best thing to do here, I know.
+        # yeah, not the best thing to do here, I know.
+        SetEnv DB_STRING #{AllGems.dbstring}
         
         Alias /docs #{AllGems.data_directory}
         Alias /docs/ #{AllGems.data_directory}/
