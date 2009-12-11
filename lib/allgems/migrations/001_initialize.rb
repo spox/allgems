@@ -1,10 +1,5 @@
 Class.new(Sequel::Migration) do
     def up
-#         AllGems.db << "CREATE TABLE gems (
-#                         name VARCHAR NOT NULL UNIQUE COLLATE NOCASE,
-#                         summary TEXT,
-#                         description TEXT,
-#                         id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT)"
         create_table(:gems) do
             String :name, :null => false, :unique => true
             String :summary
@@ -18,12 +13,6 @@ Class.new(Sequel::Migration) do
             index [:gem_id, :version], :unique => true
             primary_key :id, :null => false
         end
-#         AllGems.db << "CREATE TABLE specs (
-#                         full_name VARCHAR NOT NULL UNIQUE COLLATE NOCASE,
-#                         spec TEXT NOT NULL,
-#                         uri VARCHAR NOT NULL,
-#                         version_id INTEGER NOT NULL REFERENCES versions,
-#                         id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT)"
         AllGems.db.create_table(:specs) do
             String :full_name, :null => false, :unique => true
             String :spec, :null => false
