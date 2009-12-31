@@ -43,10 +43,21 @@ Class.new(Sequel::Migration) do
             String :uid, :null => false, :unique => true
             primary_key :id, :null => false
         end
+        # Special note for these two tables:
+        # The gems_lids table is the associations for what versions of gems
+        # are associated with a lid
+        # The lid_version table is the association of a lid to a particular
+        # version of a gem. It is used when a lid is created through the web
+        # interface for a particular gem.
         AllGems.db.create_table(:gems_lids) do
-            foreign_key :lids_id, :null => false, :table => :lids
+            foreign_key :lid_id, :null => false, :table => :lids
             foreign_key :version_id, :null => false, :table => :versions
-            primary_key [:lids_id, :version_id]
+            primary_key [:lid_id, :version_id]
+        end
+        AllGems.db.create_table(:lid_version) do
+            foreign_key :version_id, :null => false, :table => :versions
+            foreign_key :lid_id, :null => false, :table => :lids
+            primary_key [:version_id, :lid_id]
         end
         AllGems.db.create_table(:docs) do
             String :name, :null => false, :unique => true
@@ -61,6 +72,7 @@ Class.new(Sequel::Migration) do
     def down
         AllGems.db.drop_table(:docs_versions)
         AllGems.db.drop_table(:docs)
+        AllGems.db.drop_table(:lid_version)
         AllGems.db.drop_table(:gems_lids)
         AllGems.db.drop_table(:lids)
         AllGems.db.drop_table(:classes_gems)

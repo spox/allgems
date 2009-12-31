@@ -15,6 +15,12 @@ module AllGems
         before do
             @environment = options.environment
             @specer = AllGems::Specer.new
+            if(request.cookies['lid'])
+                @lid_name = AllGems.db[:lid_version].join(:versions, :id => :version_id).join(:gems, :id => :gem_id).select(:name, :version).first
+                @lid_name = @lid_name ? "#{@lid_name[:name]}-#{@lid_name[:version]}" : nil
+            else
+                @lid_name = nil
+            end
         end
         
         get '/stylesheets/:stylesheet.css' do
@@ -64,15 +70,24 @@ module AllGems
         get %r{/glid/([\w\-\_]+)/([\d\.]+)/?} do
             name = params[:captures][0]
             version = params[:captures][1]
-            spec = load_gem_spec(name, version)
-            deps = spec.dependencies.map do |dep|
-                spec = Gem::SpecFetcher.fetcher.fetch dep, true
-                spec = spec[0][0]
-                [spec.name, spec.version.version]
+            vid = AllGems.db[:versions].join(:gems, :id => :gem_id).filter(:name => name, :version => version).select(:versions__id.as(:id)).first[:id]
+            lv = AllGems.db[:lid_version].join(:lids, :id => :lid_id).filter(:version_id => vid).select(:lids__lid.as(:lid)).first
+            lid = nil
+            unless(lv)
+                spec = load_gem_spec(name, version)
+                deps = spec.dependencies.map do |dep|
+                    spec = Gem::SpecFetcher.fetcher.fetch dep, true
+                    spec = spec[0][0]
+                    [spec.name, spec.version.version]
+                end
+                deps << [name, version]
+                lid = AllGems.uid
+                lid_id = AllGems.db[:lids].filter(:uid => lid).select(:id).first[:id]
+                AllGems.db[:lid_version] << {:lid_id => lid_id, :version_id => vid}
+                AllGems.link_id(lid, deps)
+            else
+                lid = lv[:lid]
             end
-            deps << [name, version]
-            lid = AllGems.uid
-            AllGems.link_id(lid, deps)
             redirect "/lid/#{lid}" # change this to display URL with clickable link
         end
 
@@ -102,7 +117,7 @@ module AllGems
         def gems_dataset
             lid = request.cookies['lid']
             if(lid)
-                AllGems.db[:versions].join(:gems, :id => :gem_id).join(:gems_lids, :version_id => :versions__id).join(:lids, :id => :gems_lids__lids_id).select(:gems__name.as(:name), :gems__id.as(:id)).order(:id)
+                AllGems.db[:versions].join(:gems, :id => :gem_id).join(:gems_lids, :version_id => :versions__id).join(:lids, :id => :gems_lids__lid_id).select(:gems__name.as(:name), :gems__id.as(:id)).order(:id)
             else
                 AllGems.db[:gems]
             end
@@ -112,7 +127,7 @@ module AllGems
         def versions_dataset
             lid = request.cookies['lid']
             if(lid)
-                AllGems.db[:versions].join(:gems_lids, :version_id => :versions__id).join(:lids, :id => :gems_lids__lids_id).select(:versions__id.as(:id), :versions__version.as(:version), :versions__release.as(:release), :versions__gem_id.as(:gem_id))
+                AllGems.db[:versions].join(:gems_lids, :version_id => :versions__id).join(:lids, :id => :gems_lids__lid_id).select(:versions__id.as(:id), :versions__version.as(:version), :versions__release.as(:release), :versions__gem_id.as(:gem_id))
             else
                 AllGems.db[:versions]
             end

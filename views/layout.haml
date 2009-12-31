@@ -13,7 +13,8 @@
           %h1=link_to('AllGems', '/')
           - unless request.cookies['lid'].nil?
             #dislid
-              List filtered.
+              List filtered
+              ="#{@lid_name ? "on #{@lid_name}." : '.'}"
               =link_to('Disable filter', '/unlid/')
       #nav
         .contained

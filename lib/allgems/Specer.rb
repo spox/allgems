@@ -5,8 +5,10 @@ module AllGems
     class Specer
         def initialize
         end
+        # gem:: String name of gem
+        # version:: String version of the gem to fetch
         # Retrieve gem spec from database
-        def get_spec(gem, version=nil, uri=false)
+        def get_spec(gem, version=nil, uri=nil)
             spec = AllGems.db[:specs].join(:versions, :id => :version_id).join(:gems, :id => :gem_id).filter(:name => gem)
             spec = spec.filter(:version => version) if version
             spec = spec.order(:version.desc).limit(1).first
