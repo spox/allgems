@@ -2,15 +2,68 @@
 
 == Description
 
-AllGems is a simple project with a hefty goal: Provide easy access to documentation for all RubyGem files.
+AllGems is a simple project with a hefty goal: Provide easy access
+to documentation for all RubyGem files.
 
-== How?
+== How it's done
 
-==== Backend
+AllGems uses a handful of great software to download RubyGems and generate
+documentation for them. A little daemon hangs around, checking on a fixed 
+interval for any newly released gems which then get fetched, unpacked and
+documented.
 
-AllGems runs a small daemon that monitors the index of any sources registered with the locally installed RubyGems. This daemon automatically retrieves, unpacks, and generates documentation on libraries as they are released.
+== Fun features
 
-==== Frontend
+=== Class / Method / Class and method searching
 
-AllGems uses a heavily modified version of Gembox to allow access to available documentation.
+AllGems allows for easy searching. By default, searches will be run against gem
+names and descriptions. However, we can restrict searching to gems with given classes:
 
+    class:ClassName search terms
+
+Or, we can restrict searching to gems with given methods:
+
+    method:file search terms
+
+And, an extremely useful search matching a class and method name:
+
+    MD5#file
+
+This last search will generate a list of all gems containing classes that
+have the given method. Not only will it list the given gems, but which versions
+of the gem include the search.
+
+== Requirements
+
+=== Ruby requirements:
+
+* {Sequel}[http://sequel.rubyforge.org]
+* {actionpool}[http://github.com/spox/actionpool]
+* {actiontimer}[http://github.com/spox/actiontimer]
+* {haml}[http://haml-lang.org]
+* {rdoc}[http://rdoc.rubyforge.org]
+* {hanna}[http://github.com/mislav/hanna]
+* {nokogiri}[http://nokogiri.org]
+* {spockets}[http://github.com/spox/spockets]
+* {json}[http://json.rubyforge.org]
+* {sinatra}[http://www.sinatrarb.com]
+* {pg}[http://rubyforge.org/projects/ruby-pg]
+* {passenger}[http://modrails.org]
+* {rubygems}[http://rubygems.org]
+
+=== Other requirements:
+
+* {Apache 2}[http://www.apache.org]
+* {PostgreSQL}[http://postgresql.org]
+
+== Important notes
+
+The AllGems system purports to support SQLite, MySQL and PgSql. It is important to
+note that while it may start running on any of these systems, it is only fully supported
+on postgres. We need true asynchronous support, which completely eliminates SQLite. MySQL
+should be fine, but is currently untested. So, in short, if you are using this software,
+you should be using PostgreSQL.
+
+== Shoutout
+
+The web frontend of AllGems is based completely on the very fine {Gembox}[code.quirkey.com/gembox/] software.
