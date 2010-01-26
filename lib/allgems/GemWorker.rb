@@ -73,7 +73,7 @@ module AllGems
         def direct_unpack(path, basedir)
             AllGems.logger.warn "Attempting forcible unpack on: #{path}"
             unpackdir = path.slice(0, path.rindex('.'))
-            run_command("cd #{basedir} && gem unpack #{path} && mv #{unpackdir}/* #{basedir}/unpack/ && rm -rf #{unpackdir}")
+            Splib.exec("cd #{basedir} && gem unpack #{path} && mv #{unpackdir}/* #{basedir}/unpack/ && rm -rf #{unpackdir}", nil, nil, 19)
         end
 
         # dir:: base directory location of gem contents
@@ -100,7 +100,7 @@ module AllGems
                 end
                 action = lambda do |spec, dir, command, args, format_type|
                     FileUtils.rm_r("#{dir}/doc/#{f}", :force => true) # make sure we are clean before we get dirty
-                    result = run_command("#{command} #{args}")
+                    Splib.exec("#{command} #{args}", nil, nil, 19)
                     AllGems.db.transaction do
                         vid = AllGems.db[:versions].join(:gems, :id => :gem_id).filter(:name => spec.name, :version => spec.version.version).select(:versions__id.as(:vid)).first[:vid]
                         AllGems.db[:docs_versions] << {:version_id => vid, :doc_id => AllGems.doc_hash[f.to_sym]}
@@ -114,29 +114,5 @@ module AllGems
             end
         end
 
-        # command:: command to run
-        # return_output:: return output
-        # Runs a command. Returns true if status returns 0. If return_output is true,
-        # return value is: [status, output]
-        def run_command(command, return_output=false)
-            AllGems.logger.debug "Command to be executed: #{command}"
-            pro = nil
-            output = []
-            status = nil
-            begin
-                pro = IO.popen(command)
-                Process.setpriority(Process::PRIO_PROCESS, pro.pid, 19) unless ON_WINDOWS
-                until(pro.closed? || pro.eof?)
-                    output << pro.gets
-                end
-            ensure
-                unless(pro.nil?)
-                    pid, status = Process.waitpid2(pro.pid)
-                else
-                    status = 1
-                end
-            end
-            return return_output ? [status == 0, output.join] : status == 0
-        end
     end
 end
