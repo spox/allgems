@@ -16,6 +16,7 @@ spec = Gem::Specification.new do |s|
     s.add_dependency 'sequel'
     s.add_dependency 'actionpool', '~> 0.2.3'
     s.add_dependency 'actiontimer', '~> 0.2.1'
+    s.add_dependency 'splib', '~> 1.4.2'
     s.add_dependency 'haml'
     s.add_dependency 'rdoc', '=2.3.0'
     s.add_dependency 'rdoc', '>=2.4.2'
