@@ -14,14 +14,15 @@ spec = Gem::Specification.new do |s|
     s.homepage          = %q(http://github.com/spox/allgems)
     s.description       = 'AllGems is a tool to provide comprehensive gem documentation for an entire index'
     s.add_dependency 'sequel'
-    s.add_dependency 'ActionPool'
-    s.add_dependency 'ActionTimer'
+    s.add_dependency 'actionpool', '~> 0.2.3'
+    s.add_dependency 'actiontimer', '~> 0.2.1'
     s.add_dependency 'haml'
     s.add_dependency 'rdoc', '=2.3.0'
     s.add_dependency 'rdoc', '>=2.4.2'
     s.add_dependency 'sdoc'
     s.add_dependency 'hanna', '=0.1.12'
     s.add_dependency 'nokogiri'
-    s.add_dependency 'spockets'
+    s.add_dependency 'spockets', '~> 0.1'
     s.add_dependency 'json'
+    s.add_dependency 'sinatra'
 end
