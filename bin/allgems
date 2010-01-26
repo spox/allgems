@@ -215,6 +215,7 @@ AllGems.allgems = config[:all]
 AllGems.domain_name = config[:host] if config[:host]
 AllGems.listen_port = config[:port] if config[:port]
 AllGems.sources = config[:sources]
+AllGems.runners = config[:runners]
 case config[:dbtype]
 when :sqlite
     AllGems.dbstring = "sqlite://#{config[:dbfile]}"
@@ -290,7 +291,7 @@ Process.setpriority(Process::PRIO_PROCESS, 0, 19) unless ON_WINDOWS
 # finally, lets get going
 
 require 'allgems/Runner'
-runner = AllGems::Runner.new(:runners => config[:runners], :interval => config[:interval])
+runner = AllGems::Runner.new(:interval => config[:interval])
 trap('SIGINT'){runner.stop(true)}
 trap('SIGHUP'){runner.stop; runner.do_sync} unless ON_WINDOWS
 server = nil

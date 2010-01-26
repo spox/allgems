@@ -6,12 +6,11 @@ require 'allgems/GemWorker'
 module AllGems
     class Runner
         # :db_path:: path to sqlite database
-        # :runners:: maximum number of threads to use
         # :interval:: how often to update documents (useless if using cron)
         attr_accessor :pool
         def initialize(args={})
             AllGems.initialize_db
-            @pool = ActionPool::Pool.new(:max_threads => args[:runners] ? args[:runners] : 10, :a_to => 60*5) # use our own pool since we will overflow it
+            @pool = ActionPool::Pool.new(:a_to => 60*5) # use our own pool since we will overflow it
             @interval = args[:interval] ? args[:interval] : nil
             @timer = nil
             @stop = false

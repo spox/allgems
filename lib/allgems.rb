@@ -23,6 +23,7 @@ module AllGems
             self.tg = nil
             self.ti = nil
             self.allgems = true
+            self.runners = 10
             self.refresh = Time.now.to_i + 3600
             self.pool = nil
             self.timer = nil
@@ -105,7 +106,7 @@ module AllGems
         # runners:: Number of threads
         # Create a global use pool
         def initialize_pool(args=nil)
-            args = {:a_to => 60*5, :max_threads => 20} unless args
+            args = {:a_to => 60*5, :max_threads => self.runners ? self.runners : 10} unless args
             self.pool = ActionPool::Pool.new(args) if self.pool.nil?
         end
         # pool:: ActionPool to use. (Uses global pool if available)
