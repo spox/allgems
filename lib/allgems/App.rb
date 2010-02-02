@@ -71,7 +71,7 @@ module AllGems
             name = params[:captures][0]
             version = params[:captures][1]
             vid = AllGems.db[:versions].join(:gems, :id => :gem_id).filter(:name => name, :version => version).select(:versions__id.as(:id)).first[:id]
-            lv = AllGems.db[:lid_version].join(:lids, :id => :lid_id).filter(:version_id => vid).select(:lids__lid.as(:lid)).first
+            lv = AllGems.db[:lid_version].join(:lids, :id => :lid_id).filter(:version_id => vid).select(:lids__id.as(:lid)).first
             lid = nil
             unless(lv)
                 spec = load_gem_spec(name, version)
