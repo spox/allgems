@@ -4,6 +4,8 @@ require 'rubygems/installer'
 require 'allgems/DocIndexer'
 require 'allgems/Specer'
 require 'allgems/Helpers'
+require 'splib'
+Splib.load :Exec
 
 module AllGems
     class GemWorker
